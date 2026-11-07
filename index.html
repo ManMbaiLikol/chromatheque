@@ -95,11 +95,25 @@
       </div>
       <div class="bigsw" id="bigsw"></div>
       <div class="rows" id="rows"></div>
+      <div class="tablewrap" role="region" aria-labelledby="valsCaption" tabindex="0">
+        <table class="vals">
+          <caption id="valsCaption">Valeurs pour la fabrication <span class="hint">CMJN sans profil ICC et LRV estimé depuis l'écran : à confirmer sur nuancier.</span></caption>
+          <thead><tr><th scope="col">Couleur</th><th scope="col">HEX</th><th scope="col">RGB</th><th scope="col">HSL</th><th scope="col">OKLCH</th><th scope="col">CMJN ≈</th><th scope="col"><abbr title="Light Reflectance Value : part de lumière réfléchie, de 0 (noir) à 100 (blanc)">LRV</abbr> ≈</th></tr></thead>
+          <tbody id="vals"></tbody>
+        </table>
+      </div>
       <div class="actions">
         <button class="btn" type="button" id="rotate">Changer la couleur dominante</button>
         <button class="btn ghost" type="button" data-copy="hex">Copier les hex</button>
         <button class="btn ghost" type="button" data-copy="css">Copier en CSS</button>
         <button class="btn ghost" type="button" data-copy="prompt">Copier pour un prompt</button>
+        <button class="btn ghost" type="button" data-copy="table">Copier le tableau</button>
+      </div>
+      <div class="actions">
+        <p class="label actions-label">Pour ton client</p>
+        <button class="btn" type="button" id="sheetPng">Planche PNG</button>
+        <button class="btn ghost" type="button" id="sheetPrint">Imprimer ou PDF</button>
+        <button class="btn ghost" type="button" data-copy="link">Copier le lien</button>
       </div>
       <p class="toast" id="toast" role="status"></p>
       <pre class="out" id="out"></pre>
@@ -132,6 +146,7 @@
     <p class="note">Sanzo Wada (1883–1967) a publié ses combinaisons entre 1933 et 1934 dans <i>Haishoku Sōkan</i>, réédité en 2010 par Seigensha sous le titre <i>A Dictionary of Color Combinations</i>. Les valeurs hex viennent de la conversion CMJN → HEX de HexPot : ce sont des cibles à vérifier sur ton support réel (tissu, peinture, impression). Correspondance <b>fidèle</b> : écart OKLab ≤ 6 ; <b>proche</b> : ≤ 12 ; <b>libre</b> : au-delà.</p>
   </section>
 </div>
+<img class="print-sheet" id="printSheet" alt="Planche de l'accord">
 <script src="src/wada-data.js"></script>
 <script src="src/app.js"></script>
 </body>

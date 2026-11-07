@@ -28,6 +28,24 @@
   function contrast(a, b) { var x = lum(a), y = lum(b); return (Math.max(x, y) + 0.05) / (Math.min(x, y) + 0.05); }
   function readableOn(bg) { var w = contrast("#ffffff", bg), k = contrast("#141413", bg); return w >= k ? { c: "#ffffff", r: w } : { c: "#141413", r: k }; }
   function towards(hex, bg, target) { var l = lch(hex), out = hex, dark = lum(bg) < 0.2, L = l[0]; for (var i = 0; i < 70 && contrast(out, bg) < target; i++) { L += dark ? 0.012 : -0.012; out = fromLch(Math.max(0, Math.min(1, L)), l[1], l[2]); } return out; }
+  /* Valeurs pour les pros. CMJN : conversion naïve, sans profil ICC. LRV : luminance relative Y (D65) × 100,
+     estimée depuis le sRGB de l'écran. Les deux sont des estimations, à présenter comme telles. */
+  function hslOf(hex) {
+    var p = rgb(hex).map(function (v) { return v / 255; }), mx = Math.max.apply(null, p), mn = Math.min.apply(null, p), l = (mx + mn) / 2, d = mx - mn, h = 0, s = 0;
+    if (d) { s = d / (1 - Math.abs(2 * l - 1)); h = 60 * (mx === p[0] ? ((p[1] - p[2]) / d + 6) % 6 : mx === p[1] ? (p[2] - p[0]) / d + 2 : (p[0] - p[1]) / d + 4); }
+    return [Math.round(h) % 360, Math.round(s * 100), Math.round(l * 100)];
+  }
+  function cmykOf(hex) {
+    var p = rgb(hex).map(function (v) { return v / 255; }), k = 1 - Math.max.apply(null, p);
+    if (k >= 1) return [0, 0, 0, 100];
+    return p.map(function (v) { return Math.round((1 - v - k) / (1 - k) * 100); }).concat(Math.round(k * 100));
+  }
+  function lrvOf(hex) { return Math.round(lum(hex) * 1000) / 10; }
+  function values(hex) {
+    var l = lch(hex), h = hslOf(hex);
+    return { hex: hex.toUpperCase(), rgb: rgb(hex).join(" "), hsl: h[0] + "° " + h[1] + "% " + h[2] + "%",
+      oklch: (l[0] * 100).toFixed(1) + "% " + l[1].toFixed(3) + " " + (l[1] < 0.002 ? 0 : Math.round(l[2])) + "°", cmjn: cmykOf(hex).join(" "), lrv: lrvOf(hex).toFixed(1) };
+  }
   function nameOf(hex) {
     var l = lch(hex), L = l[0], C = l[1], H = l[2];
     if (C < 0.03) return L > 0.92 ? "blanc" : L < 0.25 ? "noir" : L > 0.7 ? "gris clair" : L < 0.45 ? "gris foncé" : "gris";
@@ -77,15 +95,48 @@
     return /^#[0-9a-f]{6}$/i.test(v) ? v.toLowerCase() : null;
   }
   var PROPS = { 2: [65, 35], 3: [60, 30, 10], 4: [50, 25, 15, 10] };
+  function rolesOf(n) { return n === 2 ? ["Dominante", "Contraste"] : n === 3 ? ["Dominante", "Secondaire", "Accent"] : ["Dominante", "Secondaire", "Complément", "Accent"]; }
+  var SCENES = ["interieur", "mode", "graphisme"];
+
+  /* ---------- lien partageable : l'état tient dans le hash ----------
+     #c=1448c8&c2=e8b04a&n=55&o=1.0.2&t=3&ex=0&tr=1&sc=mode */
+  function readHash(h) {
+    var q = {};
+    (h || "").replace(/^#/, "").split("&").forEach(function (kv) { var i = kv.indexOf("="); if (i > 0) { try { q[kv.slice(0, i)] = decodeURIComponent(kv.slice(i + 1)); } catch (e) {} } });
+    var c = q.c ? parseHex(q.c) : null; if (!c) return null;
+    return { seed: c, seed2: q.c2 ? parseHex(q.c2) : null, n: Math.max(0, Math.min(348, parseInt(q.n, 10) || 0)),
+      order: q.o ? q.o.split(".").map(Number) : null, size: [2, 3, 4].indexOf(+q.t) >= 0 ? +q.t : 0,
+      substitute: q.ex !== "0", transpose: q.tr === "1", scene: SCENES.indexOf(q.sc) >= 0 ? q.sc : "interieur" };
+  }
 
   /* ---------- état ---------- */
-  var state = { seed: "#1448c8", seed2: null, multi: false, target: 2, size: 0, substitute: true, transpose: false, sel: 0, order: null, scene: "interieur", dictSize: 0, list: [] };
+  var state = { seed: "#1448c8", seed2: null, multi: false, target: 2, size: 0, substitute: true, transpose: false, sel: 0, order: null, scene: "interieur", dictSize: 0, list: [], wantN: 0, wantOrder: null };
   try {
     var saved = JSON.parse(localStorage.getItem("accords-wada") || "null");
     if (saved && /^#[0-9a-f]{6}$/i.test(saved.seed)) { state.seed = saved.seed.toLowerCase(); state.size = saved.size || 0; state.scene = saved.scene || "interieur"; }
     if (saved && /^#[0-9a-f]{6}$/i.test(saved.seed2)) { state.seed2 = saved.seed2.toLowerCase(); state.multi = !!saved.multi; }
   } catch (e) {}
   function save() { try { localStorage.setItem("accords-wada", JSON.stringify({ seed: state.seed, seed2: state.seed2, multi: state.multi, size: state.size, scene: state.scene })); } catch (e) {} }
+  // Un lien partagé passe avant la mémoire du navigateur.
+  function takeLink(k) {
+    state.seed = k.seed; state.multi = !!k.seed2; if (k.seed2) state.seed2 = k.seed2;
+    state.size = k.size; state.substitute = k.substitute; state.transpose = k.transpose; state.scene = k.scene;
+    state.wantN = k.n; state.wantOrder = k.order;
+  }
+  var link = readHash(location.hash); if (link) takeLink(link);
+  function shareHash() {
+    var cur = current(), p = ["c=" + state.seed.slice(1)];
+    if (state.multi && state.seed2) p.push("c2=" + state.seed2.slice(1));
+    if (cur) p.push("n=" + cur.a.n);
+    if (cur && state.order) p.push("o=" + state.order.join("."));
+    if (state.size) p.push("t=" + state.size);
+    if (!state.substitute) p.push("ex=0");
+    if (state.transpose) p.push("tr=1");
+    if (state.scene !== "interieur") p.push("sc=" + state.scene);
+    return "#" + p.join("&");
+  }
+  function shareUrl() { return location.href.split("#")[0] + shareHash(); }
+  function updateLink() { try { history.replaceState(null, "", shareHash()); } catch (e) {} }
 
   var $ = function (id) { return document.getElementById(id); };
   function el(tag, attrs, kids) { var e = document.createElement(tag); if (attrs) for (var k in attrs) { if (k === "style") e.style.cssText = attrs[k]; else if (k === "text") e.textContent = attrs[k]; else e.setAttribute(k, attrs[k]); } (kids || []).forEach(function (c) { e.appendChild(c); }); return e; }
@@ -120,6 +171,16 @@
     var two = state.multi && state.seed2;
     var all = search(state.seed, state.size, two ? state.seed2 : null);
     state.list = all.slice(0, 12).map(function (r) { return build(r, state.seed, state); });
+    if (state.wantN) {
+      // Accord demandé par un lien ou par le dictionnaire : on l'ajoute s'il n'est pas dans les 12 premiers.
+      var j = state.list.findIndex(function (a) { return a.n === state.wantN; });
+      if (j < 0) { var r = all.find(function (x) { return x.n === state.wantN; }); if (r) { state.list.push(build(r, state.seed, state)); j = state.list.length - 1; } }
+      if (j >= 0) {
+        state.sel = j; var o = state.wantOrder, len = state.list[j].colors.length;
+        state.order = o && o.length === len && o.slice().sort().join() === Object.keys(o).join() ? o : null;
+      }
+      state.wantN = 0; state.wantOrder = null;
+    }
     var exact = all.filter(function (r) { return r.d <= 0.06; }).length, s = exact > 1 ? "s" : "";
     $("resultHint").textContent = two
       ? (exact ? exact + " combinaison" + s + " fidèle" + s + " contien" + (exact > 1 ? "nent" : "t") + " tes deux couleurs" : "Aucune combinaison ne contient fidèlement les deux : les plus proches sont proposées")
@@ -154,7 +215,7 @@
     $("detailTitle").textContent = cs.map(nameOf).join(" · ");
     var big = $("bigsw"); big.textContent = "";
     cs.forEach(function (c, i) { var t = readableOn(c); big.appendChild(el("div", { style: "background:" + c + ";color:" + t.c + ";flex:" + parts[i] }, [document.createTextNode(parts[i] + " %")])); });
-    var roles = cs.length === 2 ? ["Dominante", "Contraste"] : cs.length === 3 ? ["Dominante", "Secondaire", "Accent"] : ["Dominante", "Secondaire", "Complément", "Accent"];
+    var roles = rolesOf(cs.length);
     var rows = $("rows"); rows.textContent = "";
     cs.forEach(function (c, i) {
       var lc = c.toLowerCase(), t = readableOn(c), mine = state.substitute && (lc === state.seed || (a.two && lc === state.seed2));
@@ -167,6 +228,12 @@
         copy
       ]));
     });
+    var tb = $("vals"); tb.textContent = "";
+    cs.forEach(function (c, i) {
+      var v = values(c);
+      tb.appendChild(el("tr", null, [el("th", { scope: "row" }, [el("span", { class: "vdot", style: "background:" + c }), document.createTextNode(roles[i] + " " + parts[i] + " %")])]
+        .concat([v.hex, v.rgb, v.hsl, v.oklch, v.cmjn, v.lrv].map(function (x) { return el("td", { text: x }); }))));
+    });
     $("out").textContent = exportText("css");
     renderScene();
   }
@@ -175,6 +242,13 @@
     var cur = current(), cs = cur.colors, parts = PROPS[cs.length], n = cur.a.n;
     if (kind === "hex") return cs.map(function (c) { return c.toUpperCase(); }).join(", ");
     if (kind === "prompt") return cs.length + " couleurs " + cs.join(", ") + " (Sanzo Wada n° " + n + ", proportions " + parts.join("/") + ")";
+    if (kind === "link") return shareUrl();
+    if (kind === "table") {
+      var roles = rolesOf(cs.length);
+      return ["Rôle", "%", "HEX", "RGB", "HSL", "OKLCH", "CMJN (approx.)", "LRV (approx.)", "Nom"].join("\t") + "\n" +
+        cs.map(function (c, i) { var v = values(c); return [roles[i], parts[i], v.hex, v.rgb, v.hsl, v.oklch, v.cmjn, v.lrv, nameOf(c)].join("\t"); }).join("\n") +
+        "\n\nSanzo Wada n° " + n + " · hex : cibles HexPot · CMJN sans profil ICC · LRV estimé depuis l'écran";
+    }
     var names = cs.length === 2 ? ["dominante", "contraste"] : cs.length === 3 ? ["dominante", "secondaire", "accent"] : ["dominante", "secondaire", "complement", "accent"];
     return "/* Sanzo Wada n° " + n + " — " + parts.join("/") + " */\n:root {\n" + cs.map(function (c, i) { return "  --wada-" + names[i] + ": " + c + ";"; }).join("\n") + "\n}";
   }
@@ -186,15 +260,16 @@
     function fallback() { var o = $("out"); o.textContent = text; var r = document.createRange(); r.selectNodeContents(o); var s = getSelection(); s.removeAllRanges(); s.addRange(r); t.textContent = "Texte sélectionné ci-dessous : copie-le avec Ctrl+C."; }
   }
   document.querySelectorAll("[data-copy]").forEach(function (b) {
-    b.addEventListener("click", function () { var k = b.getAttribute("data-copy"), txt = exportText(k); $("out").textContent = txt; doCopy(txt, { hex: "Valeurs hex copiées", css: "Variables CSS copiées", prompt: "Ligne de prompt copiée" }[k]); });
+    b.addEventListener("click", function () { var k = b.getAttribute("data-copy"), txt = exportText(k); $("out").textContent = txt; doCopy(txt, { hex: "Valeurs hex copiées", css: "Variables CSS copiées", prompt: "Ligne de prompt copiée", table: "Tableau copié : colle-le dans un tableur.",
+      link: location.protocol === "file:" ? "Lien copié. Il ne marchera chez ton client qu'une fois le site en ligne." : "Lien copié : ton client verra exactement cet accord." }[k]); });
   });
   $("rotate").addEventListener("click", function () { var cur = current(); if (!cur) return; var o = cur.order.slice(); o.push(o.shift()); state.order = o; $("toast").textContent = "Dominante : " + nameOf(cur.a.colors[o[0]]); renderDetail(); });
 
   /* ---------- mises en situation ---------- */
   function shade(hex, dL) { var l = lch(hex); return fromLch(Math.max(0, Math.min(1, l[0] + dL)), l[1], l[2]); }
-  function renderScene() {
-    var cs = current().colors, A = cs[0], B = cs[1], C = cs[2] || cs[1], D = cs[3] || cs[2] || cs[0], svg, hint;
-    if (state.scene === "interieur") {
+  function sceneOf(scene, cs, n) {
+    var A = cs[0], B = cs[1], C = cs[2] || cs[1], D = cs[3] || cs[2] || cs[0], svg, hint;
+    if (scene === "interieur") {
       hint = "Mur dans la dominante, canapé en secondaire, coussins et objets en accent.";
       svg = '<svg viewBox="0 0 480 340" role="img" aria-label="Salon mis en couleur">' +
         '<rect width="480" height="250" fill="' + A + '"/>' +
@@ -206,7 +281,7 @@
         '<rect x="96" y="124" width="54" height="44" rx="8" fill="' + C + '" transform="rotate(-8 123 146)"/><rect x="214" y="126" width="54" height="44" rx="8" fill="' + D + '" transform="rotate(7 241 148)"/>' +
         '<rect x="70" y="240" width="10" height="26" fill="' + shade(B, -0.25) + '"/><rect x="290" y="240" width="10" height="26" fill="' + shade(B, -0.25) + '"/>' +
         '<rect x="388" y="214" width="56" height="52" rx="4" fill="' + shade(A, -0.3) + '"/><path d="M406 214 q10 -60 0 -110 M416 214 q22 -50 30 -96 M412 214 q-20 -40 -34 -70" stroke="' + C + '" stroke-width="5" fill="none" stroke-linecap="round"/></svg>';
-    } else if (state.scene === "mode") {
+    } else if (scene === "mode") {
       hint = "Manteau dans la dominante, haut en secondaire, pantalon et accessoires en accent.";
       svg = '<svg viewBox="0 0 480 340" role="img" aria-label="Tenue mise en couleur">' +
         '<rect width="480" height="340" fill="#e4e3de"/><rect y="300" width="480" height="40" fill="#d6d5cf"/>' +
@@ -227,11 +302,115 @@
         '<rect x="300" y="160" width="150" height="150" fill="' + C + '" style="mix-blend-mode:normal"/>' +
         '<rect x="300" y="160" width="60" height="60" fill="' + D + '"/>' +
         '<text x="32" y="210" font-family="Shippori Mincho, Georgia, serif" font-weight="700" font-size="58" fill="' + title + '">配色</text>' +
-        '<text x="32" y="252" font-family="Zen Kaku Gothic New, sans-serif" font-weight="700" font-size="22" fill="' + title + '">Accord n° ' + current().a.n + '</text>' +
+        '<text x="32" y="252" font-family="Zen Kaku Gothic New, sans-serif" font-weight="700" font-size="22" fill="' + title + '">Accord n° ' + n + '</text>' +
         '<text x="32" y="300" font-family="IBM Plex Mono, monospace" font-size="12" fill="' + t + '">' + cs.join("  ").toUpperCase() + '</text></svg>';
     }
-    $("scene").innerHTML = svg; $("sceneHint").textContent = hint;
+    return { svg: svg, hint: hint };
   }
+  function renderScene() {
+    var cur = current(), s = sceneOf(state.scene, cur.colors, cur.a.n);
+    $("scene").innerHTML = s.svg; $("sceneHint").textContent = s.hint;
+    updateLink();
+  }
+
+  /* ---------- planche client : A4 paysage, 300 dpi (dessinée en unités de 1754 × 1240, puis ×2) ---------- */
+  var SHEET = { w: 1754, h: 1240, scale: 2, m: 72, bg: "#f4f4f2", ink: "#1b1b19", muted: "#5d5d58", line: "#d9d9d5" };
+  var FONT = { display: '"Shippori Mincho", Georgia, serif', body: '"Zen Kaku Gothic New", "Segoe UI", sans-serif', mono: '"IBM Plex Mono", Consolas, monospace' };
+  function svgImage(svg) {
+    return new Promise(function (ok, ko) {
+      var img = new Image(); img.onload = function () { ok(img); }; img.onerror = ko;
+      img.src = "data:image/svg+xml;charset=utf-8," + encodeURIComponent(svg.replace("<svg ", '<svg xmlns="http://www.w3.org/2000/svg" '));
+    });
+  }
+  function wrapText(ctx, text, x, y, maxW, lh) {
+    var words = text.split(" "), line = "";
+    words.forEach(function (w) { var t = line ? line + " " + w : w; if (ctx.measureText(t).width > maxW && line) { ctx.fillText(line, x, y); y += lh; line = w; } else line = t; });
+    if (line) { ctx.fillText(line, x, y); y += lh; }
+    return y;
+  }
+  function fitText(ctx, text, maxW) { if (ctx.measureText(text).width <= maxW) return text; while (text.length > 4 && ctx.measureText(text + "…").width > maxW) text = text.slice(0, -1); return text + "…"; }
+  function makeSheet() {
+    var cur = current(), cs = cur.colors, a = cur.a, parts = PROPS[cs.length], roles = rolesOf(cs.length), sc = sceneOf(state.scene, cs, a.n), S = SHEET;
+    var wanted = ["700 40px " + FONT.display, "400 16px " + FONT.body, "700 16px " + FONT.body, "400 14px " + FONT.mono];
+    var fontsReady = document.fonts ? Promise.all(wanted.map(function (f) { return document.fonts.load(f).catch(function () {}); })) : Promise.resolve();
+    return Promise.all([fontsReady, svgImage(sc.svg).catch(function () { return null; })]).then(function (res) {
+      var img = res[1], cv = document.createElement("canvas"); cv.width = S.w * S.scale; cv.height = S.h * S.scale;
+      var x = cv.getContext("2d"); x.scale(S.scale, S.scale); x.textBaseline = "top";
+      x.fillStyle = S.bg; x.fillRect(0, 0, S.w, S.h);
+      var M = S.m, LW = 900, RX = M + LW + 56, RW = S.w - M - RX;
+
+      x.fillStyle = S.muted; x.font = "700 14px " + FONT.body; if ("letterSpacing" in x) x.letterSpacing = "2px";
+      x.fillText(("Accords Wada · d'après Sanzo Wada, 1933 · n° " + a.n + " · correspondance " + a.fid + (state.transpose ? " · teintes transposées (interprétation, plus du Wada strict)" : "")).toUpperCase(), M, M);
+      if ("letterSpacing" in x) x.letterSpacing = "0px";
+      var title = cs.map(nameOf).join(" · "), size = 54;
+      do { x.font = "700 " + size + "px " + FONT.display; size -= 2; } while (x.measureText(title).width > S.w - 2 * M && size > 26);
+      x.fillStyle = S.ink; x.fillText(title, M, M + 36);
+
+      // Bande de proportions
+      var top = 220, bandH = 380, bx = M;
+      cs.forEach(function (c, i) {
+        var w = LW * parts[i] / 100, t = readableOn(c);
+        x.fillStyle = c; x.fillRect(bx, top, w, bandH);
+        x.fillStyle = t.c; x.font = "500 16px " + FONT.mono; x.fillText(parts[i] + " %", bx + 14, top + bandH - 32);
+        bx += w;
+      });
+      x.strokeStyle = S.line; x.lineWidth = 1; x.strokeRect(M + 0.5, top + 0.5, LW - 1, bandH - 1);
+
+      // Fiches couleur
+      var colW = LW / cs.length, y0 = top + bandH + 36;
+      cs.forEach(function (c, i) {
+        var cx = M + colW * i, v = values(c), y = y0, maxW = colW - 20;
+        x.fillStyle = c; x.fillRect(cx, y, 56, 56); x.strokeStyle = S.line; x.strokeRect(cx + 0.5, y + 0.5, 55, 55);
+        y += 74;
+        x.fillStyle = S.ink; x.font = "700 18px " + FONT.body; x.fillText(fitText(x, roles[i] + " · " + parts[i] + " %", maxW), cx, y); y += 26;
+        x.fillStyle = S.muted; x.font = "400 16px " + FONT.body; x.fillText(fitText(x, nameOf(c), maxW), cx, y); y += 34;
+        [["HEX", v.hex], ["RGB", v.rgb], ["HSL", v.hsl], ["OKLCH", v.oklch], ["CMJN ≈", v.cmjn], ["LRV ≈", v.lrv]].forEach(function (r) {
+          x.font = "400 13px " + FONT.mono; x.fillStyle = S.muted; x.fillText(r[0], cx, y);
+          x.font = "400 17px " + FONT.mono; x.fillStyle = S.ink; x.fillText(fitText(x, r[1], maxW), cx, y + 17); y += 46;
+        });
+      });
+
+      // Mise en situation
+      var sh = RW * 340 / 480;
+      if (img) x.drawImage(img, RX, top, RW, sh);
+      x.strokeStyle = S.line; x.strokeRect(RX + 0.5, top + 0.5, RW - 1, sh - 1);
+      x.fillStyle = S.muted; x.font = "400 15px " + FONT.body;
+      var hy = wrapText(x, sc.hint, RX, top + sh + 16, RW, 22);
+      var rd = readableOn(cs[0]);
+      wrapText(x, "Texte lisible sur la dominante : " + (rd.c === "#ffffff" ? "blanc" : "noir") + " " + rd.r.toFixed(1) + ":1" + (rd.r < 4.5 ? " (titres seulement)" : "") + ".", RX, hy + 8, RW, 22);
+
+      // Pied de planche
+      var fy = S.h - M - 58;
+      x.fillStyle = S.line; x.fillRect(M, fy, S.w - 2 * M, 1);
+      x.fillStyle = S.muted; x.font = "400 13px " + FONT.body;
+      x.fillText("Hex : cibles issues de la conversion HexPot, à vérifier sur le support réel. CMJN sans profil ICC et LRV estimé depuis l'écran : à confirmer sur nuancier. Proportions : convention MML.", M, fy + 14);
+      x.font = "400 12px " + FONT.mono;
+      var date = new Date().toLocaleDateString("fr-FR"), right = "Accords Wada — Manso Olivier · MAN MBAÏ LIKOL", rw = x.measureText(right).width;
+      x.fillText(fitText(x, "Planche du " + date + " · " + shareUrl(), S.w - 2 * M - rw - 40), M, fy + 38);
+      x.fillText(right, S.w - M - rw, fy + 38);
+      return cv;
+    });
+  }
+  $("sheetPng").addEventListener("click", function () {
+    var t = $("toast"), n = current().a.n; t.textContent = "Préparation de la planche…";
+    makeSheet().then(function (cv) {
+      cv.toBlob(function (b) {
+        if (!b) { t.textContent = "Impossible de générer la planche dans ce navigateur."; return; }
+        var u = URL.createObjectURL(b), l = el("a", { href: u, download: "accord-wada-" + n + ".png" });
+        document.body.appendChild(l); l.click(); l.remove(); setTimeout(function () { URL.revokeObjectURL(u); }, 4000);
+        t.textContent = "Planche PNG téléchargée (A4 paysage, 300 dpi).";
+      }, "image/png");
+    }).catch(function () { t.textContent = "Impossible de générer la planche dans ce navigateur."; });
+  });
+  $("sheetPrint").addEventListener("click", function () {
+    var t = $("toast"); t.textContent = "Préparation de la planche…";
+    makeSheet().then(function (cv) {
+      var img = $("printSheet");
+      img.onload = function () { document.documentElement.classList.add("has-sheet"); t.textContent = "Choisis « Enregistrer au format PDF » pour obtenir un PDF."; window.print(); };
+      img.src = cv.toDataURL("image/png");
+    }).catch(function () { t.textContent = "Impossible de préparer l'impression dans ce navigateur."; });
+  });
+  window.addEventListener("afterprint", function () { document.documentElement.classList.remove("has-sheet"); });
   function seg(id, key, cb) {
     var g = $(id);
     g.querySelectorAll("button").forEach(function (b) {
@@ -341,17 +520,27 @@
         el("span", { class: "sw" }, c.map(function (x) { return el("i", { style: "background:" + x }); })), el("span", { text: "n° " + (i + 1) })]);
       b.addEventListener("click", function () {
         if (state.multi) { state.seed2 = c[1]; showSeed2(); document.querySelectorAll(".chip.on2").forEach(function (x) { x.classList.remove("on2"); }); }
+        state.wantN = i + 1;
         setSeed(c[0]);
-        var j = state.list.findIndex(function (a) { return a.n === i + 1; }); if (j >= 0) { state.sel = j; refreshCards(); renderDetail(); }
         $("detail").scrollIntoView({ behavior: matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth" });
       });
       g.appendChild(el("li", null, [b]));
     });
   }
 
-  $("substitute").checked = state.substitute;
-  if (state.seed2) showSeed2();
-  applyMulti();
-  renderDict();
-  setSeed(state.seed);
+  function start() {
+    $("substitute").checked = state.substitute; $("transpose").checked = state.transpose;
+    setPressed("sizeSeg", state.size); setPressed("sceneSeg", state.scene);
+    if (state.seed2) showSeed2();
+    applyMulti();
+    renderDict();
+    setSeed(state.seed);  // refresh() sélectionne l'accord demandé par le lien (state.wantN)
+  }
+  // Lien collé dans un onglet déjà ouvert
+  window.addEventListener("hashchange", function () {
+    if (location.hash === shareHash()) return;
+    var k = readHash(location.hash); if (!k) return;
+    takeLink(k); document.querySelectorAll(".chip.on, .chip.on2").forEach(function (c) { c.classList.remove("on", "on2"); }); start();
+  });
+  start();
 })();

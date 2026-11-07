@@ -6,7 +6,8 @@ Application web qui part d'une couleur (choisie ou prélevée sur une image) et 
 
 - `index.html` — la page (aucune étape de build : s'ouvre directement dans le navigateur).
 - `src/styles.css` — styles ; toutes les couleurs d'interface sont des variables `:root`, avec thème sombre (`prefers-color-scheme` + `[data-theme]`).
-- `src/app.js` — logique : conversions sRGB ↔ OKLab/OKLCH, recherche Wada, extraction de couleurs d'image (k-moyennes en OKLab), mises en situation SVG, export.
+- `src/app.js` — logique : conversions sRGB ↔ OKLab/OKLCH, recherche Wada, extraction de couleurs d'image (k-moyennes en OKLab), mises en situation SVG, export, lien partageable, planche client (canvas).
+- `.claude/launch.json` — serveur local (`python -m http.server 8000`) pour tester : ouverte en `file://`, la page ne garde pas l'état local.
 - `src/wada-data.js` — les 348 combinaisons (`window.WADA_DATA`), chargé avant `app.js`.
 - `data/wada-348.json` — même dictionnaire, lisible (`numero`, `couleurs`).
 - `design-system/` — le système MML Codes Image (tokens, règles, composants `window.MML`) dont l'application reprend la logique.
@@ -21,6 +22,12 @@ Application web qui part d'une couleur (choisie ou prélevée sur une image) et 
 - Numérotation : n° 1–120 à deux couleurs, 121–240 à trois, 241–348 à quatre. Les hex viennent de la conversion HexPot : ce sont des cibles, à présenter comme telles.
 - Combinaison n° 55 = `#d94d99 #ffffff` (une lecture antérieure ajoutait à tort un gris de contour).
 
+## Livrables client
+
+- **Lien partageable** : tout l'état tient dans le hash, `#c=…&c2=…&n=…&o=…&t=…&ex=0&tr=1&sc=…` (couleurs sans `#`, ordre `o` en indices séparés par des points). Un lien passe avant `localStorage`. Garder ce format rétrocompatible : des liens circulent chez les clients.
+- **Valeurs** : HEX, RGB, HSL, OKLCH, CMJN et LRV. Le CMJN est naïf (sans profil ICC) et le LRV estimé (luminance Y × 100 depuis le sRGB) : toujours les marquer « ≈ » et les présenter comme à confirmer sur nuancier.
+- **Planche** : A4 paysage, 300 dpi, dessinée en canvas (unités 1754 × 1240, ×2). Elle porte toujours le n° Wada, la fidélité, la mention de transposition si active, et la note sur les hex HexPot. « Imprimer ou PDF » imprime cette planche via `@media print`.
+
 ## Conventions
 
 - Interface et textes en **français**, tutoiement, phrases courtes et concrètes.
@@ -32,13 +39,15 @@ Application web qui part d'une couleur (choisie ou prélevée sur une image) et 
 
 ## Vérifier avant de livrer
 
-Ouvrir `index.html`, tester une couleur saisie, une image déposée, la recherche à deux couleurs (pastilles « Couleur 1 / Couleur 2 »), le filtre 2/3/4, la transposition, les trois mises en situation, les copies, puis le thème sombre et une largeur de 400 px. Aucune erreur dans la console.
+Ouvrir `index.html`, tester une couleur saisie, une image déposée, la recherche à deux couleurs (pastilles « Couleur 1 / Couleur 2 »), le filtre 2/3/4, la transposition, les trois mises en situation, les copies, un lien partagé rouvert dans un nouvel onglet, la planche PNG et l'aperçu d'impression, puis le thème sombre et une largeur de 400 px. Aucune erreur dans la console.
 
 ## Pistes d'évolution
 
 - Simulation de daltonisme (protanopie, deutéranopie) sur l'accord choisi.
 - Correspondances nuanciers (RAL, Pantone, peintures murales) — uniquement avec une source de données licite.
-- Export d'une planche PNG (rendu canvas) et d'un fichier `.ase` pour Adobe.
+- Exports logiciels : `.ase` (Adobe), variables Figma / design tokens JSON, config Tailwind, `.gpl`.
+- Matrice de contraste WCAG de toutes les paires, proportions réglables, déclinaisons claires/foncées, simulation d'éclairage (2700 K / 6500 K).
+- Autres sources du domaine public (Owen Jones, Séguy, kasane no irome) et générateurs de règles (Chevreul, Ostwald), avec un champ `source` par accord ; Wada reste la source par défaut et ses règles ne changent pas.
 - Favoris et historique des accords (localStorage).
 - Mises en situation supplémentaires : cuisine, façade, packaging, interface mobile.
 - Version installable (PWA) et déploiement (GitHub Pages ou Netlify).
