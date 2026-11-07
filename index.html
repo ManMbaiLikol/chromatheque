@@ -16,26 +16,61 @@
 <link rel="stylesheet" href="src/styles.css">
 </head>
 <body>
-<div class="wrap">
-  <div class="topbar">
-    <div class="seg" role="group" aria-label="Langue" data-i18n-attr="aria-label=h.lang" id="langSeg">
-      <button type="button" data-v="fr" lang="fr" aria-pressed="true">FR</button>
-      <button type="button" data-v="en" lang="en" aria-pressed="false">EN</button>
+<a class="skip" href="#couleur" data-i18n="h.skip">Aller à l'outil</a>
+<header class="site">
+  <div class="site-in">
+    <a class="brand" href="#top"><span class="brand-mark" id="brandMark" aria-hidden="true"><i></i><i></i><i></i></span><span>Accords Wada</span></a>
+    <nav class="nav" aria-label="Sections" data-i18n-attr="aria-label=h.nav">
+      <a href="#sources" data-i18n="h.nav.sources">Sources</a>
+      <a href="#couleur" data-i18n="h.nav.color">Couleur</a>
+      <a href="#accord" data-i18n="h.nav.accord">Accord</a>
+      <a href="#metier" data-i18n="h.nav.job">Métier</a>
+      <a href="#livrer" data-i18n="h.nav.deliver">Livrer</a>
+      <a href="#bibliotheque" data-i18n="h.nav.library">Bibliothèque</a>
+    </nav>
+    <div class="site-tools">
+      <div class="seg small" role="group" aria-label="Langue" data-i18n-attr="aria-label=h.lang" id="langSeg">
+        <button type="button" data-v="fr" lang="fr" aria-pressed="true">FR</button>
+        <button type="button" data-v="en" lang="en" aria-pressed="false">EN</button>
+      </div>
+      <button class="btn ghost small" type="button" id="install" hidden data-i18n="h.install">Installer l'app</button>
     </div>
-    <button class="btn ghost" type="button" id="install" hidden data-i18n="h.install">Installer l'app</button>
   </div>
-  <header class="head">
-    <div>
-      <p class="label" data-i18n="h.kicker">D'après Sanzo Wada · 配色総鑑 · 1933</p>
-      <h1 data-i18n="h.title">Accords Wada</h1>
-      <p class="lede" data-i18n-html="h.lede">Choisis une couleur ou dépose la photo d'un tissu, d'une peinture, d'un matériau. L'outil cherche dans les 348 combinaisons du <i>Dictionary of Color Combinations</i> celles qui contiennent ta couleur, et te propose les déclinaisons.</p>
-      <div class="strip" id="headStrip" aria-hidden="true"></div>
-    </div>
-    <div class="kanji" aria-hidden="true">和田三造　配色</div>
-  </header>
+</header>
 
-  <section class="main">
+<main class="wrap" id="top">
+  <section class="hero">
+    <div class="hero-text">
+      <p class="label" data-i18n="h.kicker">Atelier de couleurs · d'après Sanzo Wada et d'autres traditions</p>
+      <h1><span data-i18n="h.title1">Trouve l'accord</span> <em data-i18n="h.title2">de ta couleur</em></h1>
+      <p class="lede" data-i18n-html="h.lede">Choisis une couleur ou dépose la photo d'un tissu, d'une peinture, d'un matériau. L'outil cherche les accords qui la contiennent, chez Sanzo Wada et dans d'autres traditions, puis te montre leur effet dans ton métier.</p>
+      <div class="hero-cta">
+        <a class="btn" href="#couleur" data-i18n="h.start">Commencer</a>
+        <a class="btn ghost" href="#sources" data-i18n="h.seesources">Voir les sources</a>
+      </div>
+    </div>
+    <div class="hero-art" id="heroArt" aria-hidden="true"></div>
+    <div class="kanji" aria-hidden="true">配色　和田三造</div>
+  </section>
+
+  <section class="band" id="sources" aria-labelledby="srcTitle">
+    <div class="step-head">
+      <span class="step" aria-hidden="true">01</span>
+      <div>
+        <p class="label" data-i18n="h.src.kicker">D'où viennent les accords</p>
+        <h2 id="srcTitle" data-i18n="h.src.title">Choisis ta source</h2>
+      </div>
+    </div>
+    <div class="sources" id="sourceList" role="group" aria-labelledby="srcTitle"></div>
+    <p class="note" id="sourceNote"></p>
+  </section>
+
+  <section class="main" id="couleur">
     <form class="panel" id="panel" onsubmit="return false">
+      <div class="step-head">
+        <span class="step" aria-hidden="true">02</span>
+        <div><p class="label" data-i18n="h.color.kicker">Ton point de départ</p><h2 data-i18n="h.color.title">Ta couleur</h2></div>
+      </div>
       <div class="seed">
         <input type="color" id="picker" value="#1448c8" aria-label="Couleur de départ" data-i18n-attr="aria-label=h.seed">
         <div>
@@ -45,7 +80,7 @@
         </div>
       </div>
 
-      <div class="multi">
+      <div class="multi" id="multiBox">
         <label class="check"><input type="checkbox" id="multi"> <span data-i18n-html="h.multi">Chercher avec une 2<sup>e</sup> couleur <span class="hint">(accords qui contiennent les deux)</span></span></label>
         <div class="seed" id="seed2" hidden>
           <input type="color" id="picker2" value="#e8dcc0" aria-label="Deuxième couleur" data-i18n-attr="aria-label=h.seed2">
@@ -59,6 +94,7 @@
 
       <div class="drop" id="drop">
         <input type="file" id="file" accept="image/*" aria-label="Choisir une image" data-i18n-attr="aria-label=h.drop.aria">
+        <span class="drop-ico" aria-hidden="true">◐</span>
         <span data-i18n-html="h.drop"><b>Dépose une image</b> ou clique pour la choisir</span>
         <span class="hint" data-i18n="h.drop.hint">Photo, échantillon, nuancier. Tu peux aussi la coller (Ctrl+V).</span>
       </div>
@@ -86,67 +122,48 @@
             <button type="button" data-v="4" aria-pressed="false">4</button>
           </div>
         </div>
-        <label class="check"><input type="checkbox" id="substitute" checked> <span data-i18n="h.substitute">Mettre ma couleur exacte à la place de sa voisine Wada</span></label>
-        <label class="check"><input type="checkbox" id="transpose"> <span data-i18n-html="h.transpose">Transposer les autres couleurs vers ma teinte <span class="hint">(interprétation, plus du Wada strict)</span></span></label>
+        <div class="opts" id="dictOpts">
+          <label class="check"><input type="checkbox" id="substitute" checked> <span data-i18n="h.substitute">Mettre ma couleur exacte à la place de sa voisine dans l'accord</span></label>
+          <label class="check"><input type="checkbox" id="transpose"> <span data-i18n-html="h.transpose">Transposer les autres couleurs vers ma teinte <span class="hint">(interprétation, plus du Wada strict)</span></span></label>
+        </div>
       </div>
     </form>
 
     <div class="results">
-      <div class="results-head">
-        <h2 data-i18n="h.suggested">Accords suggérés</h2>
-        <p class="hint" id="resultHint"></p>
+      <div class="step-head">
+        <span class="step" aria-hidden="true">03</span>
+        <div><p class="label" id="resultsKicker"></p><h2 data-i18n="h.suggested">Accords suggérés</h2></div>
       </div>
+      <p class="hint" id="resultHint"></p>
       <ul class="cards" id="cards"></ul>
     </div>
   </section>
 
-  <section class="detail" id="detail" aria-live="polite">
+  <section class="detail" id="accord" aria-live="polite">
     <div class="detail-info">
-      <div>
-        <p class="label" id="detailLabel"></p>
-        <h2 id="detailTitle"></h2>
+      <div class="step-head">
+        <span class="step" aria-hidden="true">04</span>
+        <div><p class="label" id="detailLabel"></p><h2 id="detailTitle"></h2></div>
       </div>
+      <p class="hint" id="detailSource"></p>
       <div class="bigsw" id="bigsw"></div>
       <div class="rows" id="rows"></div>
-      <div class="tablewrap" role="region" aria-labelledby="valsCaption" tabindex="0">
-        <table class="vals">
-          <caption id="valsCaption" data-i18n-html="h.vals">Valeurs pour la fabrication <span class="hint">CMJN sans profil ICC et LRV estimé depuis l'écran : à confirmer sur nuancier.</span></caption>
-          <thead><tr><th scope="col" data-i18n="h.col.color">Couleur</th><th scope="col">HEX</th><th scope="col">RGB</th><th scope="col">HSL</th><th scope="col">OKLCH</th><th scope="col" data-i18n="h.col.cmyk">CMJN ≈</th><th scope="col"><abbr title="Light Reflectance Value : part de lumière réfléchie, de 0 (noir) à 100 (blanc)" data-i18n-attr="title=h.lrv.title">LRV</abbr> ≈</th></tr></thead>
-          <tbody id="vals"></tbody>
-        </table>
-      </div>
       <div class="actions">
         <button class="btn" type="button" id="rotate" data-i18n="h.rotate">Changer la couleur dominante</button>
         <button class="btn ghost fav" type="button" id="fav" aria-pressed="false" data-i18n="h.fav">Garder dans le projet</button>
-        <button class="btn ghost" type="button" data-copy="hex" data-i18n="h.copy.hex">Copier les hex</button>
-        <button class="btn ghost" type="button" data-copy="css" data-i18n="h.copy.css">Copier en CSS</button>
-        <button class="btn ghost" type="button" data-copy="prompt" data-i18n="h.copy.prompt">Copier pour un prompt</button>
-        <button class="btn ghost" type="button" data-copy="table" data-i18n="h.copy.table">Copier le tableau</button>
       </div>
-      <div class="actions">
-        <p class="label actions-label" data-i18n="h.forclient">Pour ton client</p>
-        <button class="btn" type="button" id="sheetPng" data-i18n="h.sheet.png">Planche PNG</button>
-        <button class="btn ghost" type="button" id="sheetPrint" data-i18n="h.sheet.print">Imprimer ou PDF</button>
-        <button class="btn ghost" type="button" data-copy="link" data-i18n="h.copy.link">Copier le lien</button>
-      </div>
-      <div class="actions">
-        <p class="label actions-label" data-i18n="h.forsoftware">Pour tes logiciels</p>
-        <button class="btn ghost" type="button" data-export="ase">Adobe (.ase)</button>
-        <button class="btn ghost" type="button" data-export="tokens">Design tokens (.json)</button>
-        <button class="btn ghost" type="button" data-export="tailwind">Tailwind (.css)</button>
-        <button class="btn ghost" type="button" data-export="gpl">GIMP · Inkscape (.gpl)</button>
-      </div>
-      <p class="toast" id="toast" role="status"></p>
-      <pre class="out" id="out"></pre>
     </div>
-    <div class="scene">
-      <div class="seg" role="group" aria-label="Mise en situation" data-i18n-attr="aria-label=h.scene" id="sceneSeg">
-        <button type="button" data-v="interieur" aria-pressed="true" data-i18n="h.interieur">Intérieur</button>
-        <button type="button" data-v="mode" aria-pressed="false" data-i18n="h.mode">Mode</button>
-        <button type="button" data-v="graphisme" aria-pressed="false" data-i18n="h.graphisme">Graphisme</button>
+
+    <div class="jobcol" id="metier">
+      <div class="step-head">
+        <span class="step" aria-hidden="true">05</span>
+        <div><p class="label" data-i18n="h.job.kicker">L'effet dans ton métier</p><h2 data-i18n="h.job.title">Ton métier</h2></div>
       </div>
-      <div id="scene"></div>
+      <div class="jobs" id="jobList"></div>
+      <p class="jobdesc" id="jobDesc"></p>
+      <div class="scene" id="scene"></div>
       <p class="hint" id="sceneHint"></p>
+      <ul class="impact" id="impact" aria-label="Analyse pour ton métier" data-i18n-attr="aria-label=h.impact"></ul>
       <div class="sim">
         <div>
           <p class="label" id="lightLabel" data-i18n="h.light">Lumière</p>
@@ -171,11 +188,54 @@
     </div>
   </section>
 
-  <section class="projects" aria-labelledby="projTitle">
+  <section class="deliver" id="livrer" aria-labelledby="deliverTitle">
+    <div class="step-head">
+      <span class="step" aria-hidden="true">06</span>
+      <div><p class="label" data-i18n="h.deliver.kicker">Pour ton client et tes logiciels</p><h2 id="deliverTitle" data-i18n="h.deliver.title">Livrer</h2></div>
+    </div>
+    <div class="tablewrap" role="region" aria-labelledby="valsCaption" tabindex="0">
+      <table class="vals">
+        <caption id="valsCaption" data-i18n-html="h.vals">Valeurs pour la fabrication <span class="hint">CMJN sans profil ICC et LRV estimé depuis l'écran : à confirmer sur nuancier.</span></caption>
+        <thead><tr><th scope="col" data-i18n="h.col.color">Couleur</th><th scope="col">HEX</th><th scope="col">RGB</th><th scope="col">HSL</th><th scope="col">OKLCH</th><th scope="col" data-i18n="h.col.cmyk">CMJN ≈</th><th scope="col"><abbr title="Light Reflectance Value : part de lumière réfléchie, de 0 (noir) à 100 (blanc)" data-i18n-attr="title=h.lrv.title">LRV</abbr> ≈</th></tr></thead>
+        <tbody id="vals"></tbody>
+      </table>
+    </div>
+    <div class="deliver-grid">
+      <div class="dcard">
+        <p class="label" data-i18n="h.forclient">Pour ton client</p>
+        <div class="actions">
+          <button class="btn" type="button" id="sheetPng" data-i18n="h.sheet.png">Planche PNG</button>
+          <button class="btn ghost" type="button" id="sheetPrint" data-i18n="h.sheet.print">Imprimer ou PDF</button>
+          <button class="btn ghost" type="button" data-copy="link" data-i18n="h.copy.link">Copier le lien</button>
+        </div>
+      </div>
+      <div class="dcard">
+        <p class="label" data-i18n="h.forsoftware">Pour tes logiciels</p>
+        <div class="actions">
+          <button class="btn ghost" type="button" data-export="ase">Adobe (.ase)</button>
+          <button class="btn ghost" type="button" data-export="tokens">Design tokens (.json)</button>
+          <button class="btn ghost" type="button" data-export="tailwind">Tailwind (.css)</button>
+          <button class="btn ghost" type="button" data-export="gpl">GIMP · Inkscape (.gpl)</button>
+        </div>
+      </div>
+      <div class="dcard">
+        <p class="label" data-i18n="h.copies">À copier</p>
+        <div class="actions">
+          <button class="btn ghost" type="button" data-copy="hex" data-i18n="h.copy.hex">Copier les hex</button>
+          <button class="btn ghost" type="button" data-copy="css" data-i18n="h.copy.css">Copier en CSS</button>
+          <button class="btn ghost" type="button" data-copy="prompt" data-i18n="h.copy.prompt">Copier pour un prompt</button>
+          <button class="btn ghost" type="button" data-copy="table" data-i18n="h.copy.table">Copier le tableau</button>
+        </div>
+      </div>
+    </div>
+    <pre class="out" id="out"></pre>
+  </section>
+
+  <section class="projects" id="bibliotheque" aria-labelledby="projTitle">
     <div class="dict-head">
-      <div>
-        <p class="label" data-i18n="h.library">Ta bibliothèque</p>
-        <h2 id="projTitle" data-i18n="h.projects">Projets et favoris</h2>
+      <div class="step-head">
+        <span class="step" aria-hidden="true">07</span>
+        <div><p class="label" data-i18n="h.library">Ta bibliothèque</p><h2 id="projTitle" data-i18n="h.projects">Projets et favoris</h2></div>
       </div>
       <div class="proj-tools">
         <div class="field"><label class="label" for="projSel" data-i18n="h.projsel">Projet ouvert</label><select id="projSel"></select></div>
@@ -199,8 +259,8 @@
   <section class="dict" id="dictionnaire">
     <div class="dict-head">
       <div>
-        <p class="label" data-i18n="h.dict.kicker">Les 348 combinaisons</p>
-        <h2 data-i18n="h.dict.title">Parcourir le dictionnaire</h2>
+        <p class="label" id="dictKicker"></p>
+        <h2 id="dictTitle"></h2>
       </div>
       <div class="seg" role="group" aria-label="Filtrer le dictionnaire" data-i18n-attr="aria-label=h.dict.filter" id="dictSeg">
         <button type="button" data-v="0" aria-pressed="true" data-i18n="h.all.f">Toutes</button>
@@ -210,14 +270,23 @@
       </div>
     </div>
     <ul class="dict-grid" id="dictGrid"></ul>
-    <p class="note" data-i18n-html="h.pages">Chaque combinaison a sa propre page : <a href="accord/">parcourir les 348 fiches</a>.</p>
-    <p class="note" data-i18n-html="h.note">Sanzo Wada (1883–1967) a publié ses combinaisons entre 1933 et 1934 dans <i>Haishoku Sōkan</i>, réédité en 2010 par Seigensha sous le titre <i>A Dictionary of Color Combinations</i>. Les valeurs hex viennent de la conversion CMJN → HEX de HexPot : ce sont des cibles à vérifier sur ton support réel (tissu, peinture, impression). Correspondance <b>fidèle</b> : écart OKLab ≤ 6 ; <b>proche</b> : ≤ 12 ; <b>libre</b> : au-delà.</p>
+    <p class="note" id="dictNote"></p>
+    <p class="note" id="dictPages" data-i18n-html="h.pages">Chaque combinaison de Wada a sa propre page : <a href="accord/">parcourir les 348 fiches</a>.</p>
   </section>
-</div>
+</main>
+<footer class="foot">
+  <div class="foot-in">
+    <p><b>Accords Wada</b> — Manso Olivier · MAN MBAÏ LIKOL</p>
+    <p class="note" data-i18n-html="h.foot">Sanzo Wada (1883–1967), <i>Haishoku Sōkan</i>, 1933–1934, réédité par Seigensha sous le titre <i>A Dictionary of Color Combinations</i>. Les autres sources sont des interprétations MML, signalées comme telles. Illustrations : dessins originaux MML.</p>
+  </div>
+</footer>
+<p class="toast" id="toast" role="status"></p>
 <img class="print-sheet" id="printSheet" alt="Planche de l'accord" data-i18n-attr="alt=h.sheet.alt">
 <script src="src/core.js"></script>
 <script src="src/i18n.js"></script>
 <script src="src/wada-data.js"></script>
+<script src="src/sources-data.js"></script>
+<script src="src/scenes.js"></script>
 <script src="src/app.js"></script>
 </body>
 </html>

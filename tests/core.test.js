@@ -126,3 +126,73 @@ test("exports : en-tête ASE, tokens, GPL", () => {
   assert.match(C.gplText(55, items), /^GIMP Palette\n/);
   assert.match(C.gplText(55, items, "en"), /No\. 55/);
 });
+
+const SOURCES = require("../src/sources-data.js").WADA_SOURCES;
+const Scenes = require("../src/scenes.js");
+
+test("sources : kasane à 2 couleurs, traditions africaines de 2 à 4, hex valides", () => {
+  assert.equal(SOURCES.kasane.length, 16);
+  SOURCES.kasane.forEach((e) => { assert.equal(e.colors.length, 2); assert.ok(e.jp && e.fr && e.en && e.g.fr); });
+  assert.equal(SOURCES.afrique.length, 20);
+  for (const e of SOURCES.kasane.concat(SOURCES.afrique)) {
+    assert.ok(e.colors.length >= 2 && e.colors.length <= 4, e.fr);
+    e.colors.forEach((c) => assert.equal(C.parseHex(c), c, e.fr + " " + c));
+  }
+  const r = C.createSearch(SOURCES.kasane.map((e) => e.colors))("#db6d8a", 0)[0];
+  assert.equal(r.n, 1, "kōbai en tête pour son propre endroit");
+});
+
+test("règles : la couleur de départ reste exacte, tailles 2 à 4", () => {
+  const rules = C.ruleCombos("#1448c8");
+  assert.deepEqual(rules.map((r) => r.k), C.RULES);
+  rules.forEach((r) => { assert.equal(r.colors[0], "#1448c8"); r.colors.forEach((c) => assert.ok(C.parseHex(c))); });
+  assert.deepEqual(rules.map((r) => r.colors.length), [2, 3, 4, 3, 3, 4]);
+  assert.equal(C.ruleCombos("#808080")[0].colors.length, 2, "gris : une teinte par défaut");
+});
+
+test("métiers : 15 métiers, 4 analyses chacun, niveaux connus", () => {
+  assert.equal(C.JOB_IDS.length, 15);
+  for (const j of C.JOB_IDS) {
+    assert.ok(C.FAMILIES.includes(C.JOBS[j].f));
+    for (const cs of [["#d94d99", "#ffffff"], ["#6c2b11", "#f2ad78", "#0057ba"], ["#000000", "#ffffff", "#e2a72e", "#1e7b45"]]) {
+      const out = C.jobChecks(j, cs);
+      assert.equal(out.length, 4, j);
+      out.forEach((c) => assert.ok(["ok", "warn", "info"].includes(c.lv), j + " " + c.k));
+    }
+  }
+  assert.equal(C.jobChecks("ui", ["#000000", "#ffffff"])[1].lv, "ok", "21:1 suffit pour le texte");
+  assert.equal(C.jobChecks("motion", ["#000000", "#ffffff"])[1].lv, "warn", "noir et blanc purs hors plage vidéo");
+  assert.equal(C.harmonyOf(["#ff0000", "#00b0b0"]), "complementaire");
+  assert.equal(C.harmonyOf(["#ffffff", "#000000"]), "neutre");
+  assert.equal(C.tempOf(["#c3283f", "#e2a72e"]), "chaud");
+  assert.equal(C.opticalMix(["#ffffff", "#ffffff"]), "#ffffff");
+});
+
+test("scènes : un SVG par métier, avec les couleurs de l'accord", () => {
+  assert.deepEqual(Scenes.JOBS.slice().sort(), C.JOB_IDS.slice().sort());
+  const cs = ["#6c2b11", "#f2ad78", "#0057ba", "#e8dcc0"];
+  for (const j of C.JOB_IDS) {
+    const svg = Scenes.render(j, cs, { aria: "a<b", label: "n° 1" });
+    assert.match(svg, /^<svg viewBox="0 0 480 340"/, j);
+    assert.ok(svg.includes(cs[0]), j + " : dominante présente");
+    assert.ok(!svg.includes("a<b"), j + " : texte échappé");
+  }
+});
+
+test("lien : source et métier, rétrocompatibles", () => {
+  const h = "#c=db6d8a&n=1&sc=ui&s=kasane";
+  assert.equal(C.hashOf(C.readHash(h)), h);
+  assert.equal(C.readHash("#c=d94d99&n=55").source, "wada");
+  assert.equal(C.readHash("#c=d94d99&n=55&s=inconnu").source, "wada");
+  assert.equal(C.readHash("#c=d94d99&sc=graphisme").scene, "graphisme", "anciennes scènes toujours valides");
+  assert.notEqual(C.keyOf("#c=db6d8a&n=1&s=kasane"), C.keyOf("#c=db6d8a&n=1"));
+  assert.equal(C.cleanItems([{ hash: h, colors: ["#db6d8a", "#8e354a"] }])[0].source, "kasane");
+});
+
+test("exports : titre et préfixe d'une autre source", () => {
+  const items = [{ hex: "#db6d8a", role: "Endroit", slug: "dominante", pct: 65, name: "rose" }, { hex: "#8e354a", role: "Envers", slug: "contraste", pct: 35, name: "bordeaux" }];
+  const meta = { key: "kasane-1", title: "Kasane no irome · 紅梅", prefix: "kasane", note: "Interprétation MML." };
+  assert.equal(JSON.parse(C.tokensText(meta, items, "fr"))["kasane-1"].dominante.$value, "#db6d8a");
+  assert.match(C.tailwindText(meta, items, "fr"), /--color-kasane-dominante: #db6d8a/);
+  assert.match(C.gplText(meta, items), /Name: Kasane no irome · 紅梅/);
+});

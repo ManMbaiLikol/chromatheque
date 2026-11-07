@@ -188,35 +188,154 @@
     chunks.forEach(function (c) { out.set(c, at); at += c.length; });
     return out;
   }
+  // meta : { key: "wada-55", title: "Sanzo Wada n° 55", prefix: "wada", note } ; un numéro seul = accord Wada.
+  function metaOf(n, lang) {
+    if (n && typeof n === "object") return n;
+    var T = tx(lang); return { key: "wada-" + n, title: "Sanzo Wada " + T.num + n, prefix: "wada", note: T.hex };
+  }
   function tokensText(n, items, lang) {
-    var T = tx(lang), g = { $description: "Sanzo Wada " + T.num + n + " — " + items.map(function (it) { return it.pct; }).join("/") + " (" + T.conv + "). " + T.hex };
+    var T = tx(lang), m = metaOf(n, lang), g = { $description: m.title + " — " + items.map(function (it) { return it.pct; }).join("/") + " (" + T.conv + "). " + (m.note || "") };
     items.forEach(function (it) { g[it.slug] = { $type: "color", $value: it.hex, $description: it.role + " · " + it.pct + " % · " + it.name }; });
-    var root = {}; root["wada-" + n] = g;
+    var root = {}; root[m.key] = g;
     return JSON.stringify(root, null, 2) + "\n";
   }
   function tailwindText(n, items, lang) {
-    var T = tx(lang);
-    return "/* Sanzo Wada " + T.num + n + " — " + items.map(function (it) { return it.pct; }).join("/") + " */\n" +
-      "/* " + T.tw4 + " bg-wada-" + items[0].slug + ", text-wada-… */\n" +
-      "@theme {\n" + items.map(function (it) { return "  --color-wada-" + it.slug + ": " + it.hex + ";"; }).join("\n") + "\n}\n\n" +
-      "/* " + T.tw3 + "\n   { wada: { " + items.map(function (it) { return it.slug + ": '" + it.hex + "'"; }).join(", ") + " } } */\n";
+    var T = tx(lang), m = metaOf(n, lang), p = m.prefix || "wada";
+    return "/* " + m.title + " — " + items.map(function (it) { return it.pct; }).join("/") + " */\n" +
+      "/* " + T.tw4 + " bg-" + p + "-" + items[0].slug + ", text-" + p + "-… */\n" +
+      "@theme {\n" + items.map(function (it) { return "  --color-" + p + "-" + it.slug + ": " + it.hex + ";"; }).join("\n") + "\n}\n\n" +
+      "/* " + T.tw3 + "\n   { " + p + ": { " + items.map(function (it) { return it.slug + ": '" + it.hex + "'"; }).join(", ") + " } } */\n";
   }
   function gplText(n, items, lang) {
     var pad = function (v) { return ("  " + v).slice(-3); };
-    return "GIMP Palette\nName: Sanzo Wada " + tx(lang).num + n + "\nColumns: " + items.length + "\n#\n" +
+    return "GIMP Palette\nName: " + metaOf(n, lang).title + "\nColumns: " + items.length + "\n#\n" +
       items.map(function (it) { var p = rgb(it.hex); return pad(p[0]) + " " + pad(p[1]) + " " + pad(p[2]) + "\t" + it.role + " (" + it.pct + " %) " + it.hex.toUpperCase(); }).join("\n") + "\n";
   }
 
+  /* ---------- règles d'harmonie (générateurs MML) ----------
+     Lecture en OKLCH des harmonies de Chevreul (1839) et des accords d'Itten : la couleur de départ est gardée
+     telle quelle, les autres tournent autour du cercle des teintes. Ce ne sont pas des accords d'un dictionnaire. */
+  var RULES = ["complementaire", "analogues", "camaieu", "triade", "voisines", "tetrade"];
+  function ruleCombos(seed) {
+    var l = lch(seed), L = l[0], C = Math.max(l[1], 0.1), H = l[1] < 0.03 ? 250 : l[2];
+    var at = function (dh, dL) { return fromLch(Math.max(0.12, Math.min(0.96, L + (dL || 0))), C, (H + dh + 360) % 360); };
+    var ladder = [0.95, 0.78, 0.58, 0.4, 0.24].filter(function (x) { return Math.abs(x - L) > 0.1; });
+    var tones = [ladder[0], ladder[Math.floor(ladder.length / 2)], ladder[ladder.length - 1]].map(function (x) { return fromLch(x, C * (x > 0.85 ? 0.35 : 0.9), H); });
+    var out = {
+      complementaire: [seed, at(180)],
+      analogues: [seed, at(30, 0.05), at(-30, -0.05)],
+      camaieu: [seed].concat(tones),
+      triade: [seed, at(120), at(240)],
+      voisines: [seed, at(150), at(210)],
+      tetrade: [seed, at(90), at(180), at(270)]
+    };
+    return RULES.map(function (k, i) { return { n: i + 1, k: k, colors: out[k] }; });
+  }
+
+  /* ---------- analyses par métier ----------
+     Chaque contrôle rend { k, lv: "ok" | "warn" | "info", v } ; les textes sont dans i18n.js (chk.<k>.<lv>).
+     Les hex de v sont affichés avec leur nom par l'interface. Seuils : WCAG 2.2 (4.5:1 texte, 3:1 éléments
+     graphiques), 30 points de LRV entre surfaces voisines (repère d'accessibilité courant), plage vidéo 16–235. */
+  var JOBS = {
+    graphisme: { f: "image", c: ["text", "grey", "cmyk", "harmony"] },
+    motion: { f: "image", c: ["text", "video", "cvd", "temp"] },
+    da: { f: "image", c: ["harmony", "temp", "pop", "grey"] },
+    packaging: { f: "image", c: ["pop", "cmyk", "text", "light4000"] },
+    ux: { f: "numerique", c: ["text", "nontext", "cvd", "semantic"] },
+    ui: { f: "numerique", c: ["roles", "text", "nontext", "cvd"] },
+    web: { f: "numerique", c: ["roles", "text", "dark", "cvd"] },
+    jeu: { f: "numerique", c: ["popout", "cvd", "temp", "harmony"] },
+    interieur: { f: "espace", c: ["lrv", "lrvdiff", "light2700", "temp"] },
+    retail: { f: "espace", c: ["light4000", "pop", "text", "lrvdiff"] },
+    scenographie: { f: "espace", c: ["light2700", "lrv", "popout", "harmony"] },
+    produit: { f: "objet", c: ["heat", "nontext", "lrvdiff", "temp"] },
+    transport: { f: "objet", c: ["heat", "road", "pop", "grey"] },
+    mode: { f: "mode", c: ["temp", "contrastlvl", "harmony", "light2700"] },
+    textile: { f: "mode", c: ["mix", "count", "grey", "light4000"] }
+  };
+  var JOB_IDS = Object.keys(JOBS), FAMILIES = ["image", "numerique", "espace", "objet", "mode"];
+  function hueGap(a, b) { var d = Math.abs(a - b) % 360; return d > 180 ? 360 - d : d; }
+  function harmonyOf(cs) {
+    var h = cs.map(lch).filter(function (l) { return l[1] >= 0.04; }).map(function (l) { return l[2]; });
+    if (!h.length) return "neutre";
+    if (h.length === 1) return "mono";
+    var gaps = []; for (var i = 0; i < h.length; i++) for (var j = i + 1; j < h.length; j++) gaps.push(hueGap(h[i], h[j]));
+    if (Math.max.apply(null, gaps) <= 40) return "analogue";
+    if (h.length >= 3 && Math.min.apply(null, gaps) >= 70) return "triade";
+    if (gaps.some(function (g) { return g >= 150; })) return "complementaire";
+    return "contraste";
+  }
+  // Chaud / froid, pondéré par les proportions : les neutres ne comptent pas.
+  function tempOf(cs) {
+    var parts = PROPS[cs.length], s = 0;
+    cs.forEach(function (c, i) { var l = lch(c); if (l[1] < 0.04) return; var H = l[2]; s += (H < 100 || H >= 330 ? 1 : H >= 150 && H < 300 ? -1 : 0) * parts[i] / 100; });
+    return s > 0.2 ? "chaud" : s < -0.2 ? "froid" : "equilibre";
+  }
+  // Estimation : couleurs écran très saturées, souvent hors de la gamme d'une impression quadri sur couché.
+  function cmykRisk(hex) { var l = lch(hex); return l[1] > 0.2 || (l[1] > 0.15 && l[2] >= 140 && l[2] <= 300); }
+  function videoUnsafe(hex) { return rgb(hex).some(function (v) { return v < 16 || v > 235; }); }
+  // Mélange optique (motif vu de loin) : moyenne en RGB linéaire, pondérée par les proportions.
+  function opticalMix(cs) {
+    var parts = PROPS[cs.length], acc = [0, 0, 0];
+    cs.forEach(function (c, i) { rgb(c).map(lin).forEach(function (v, j) { acc[j] += v * parts[i] / 100; }); });
+    return toHex(acc.map(delin));
+  }
+  function pairs(cs) { var o = []; for (var i = 0; i < cs.length; i++) for (var j = i + 1; j < cs.length; j++) o.push([cs[i], cs[j]]); return o; }
+  function byDesc(list, f) { return list.map(function (c) { return [c, f(c)]; }).sort(function (x, y) { return y[1] - x[1]; })[0]; }
+  function lightCheck(cs, K) {
+    var s = cs.map(function (c) { return lab(simulate(c, K, "normale")); });
+    for (var i = 0; i < cs.length; i++) for (var j = i + 1; j < cs.length; j++) if (dist(s[i], s[j]) < 0.04 && dist(lab(cs[i]), lab(cs[j])) >= 0.04) return { lv: "warn", v: { a: cs[i], b: cs[j], K: K } };
+    var most = byDesc(cs, function (c) { return dist(lab(c), lab(simulate(c, K, "normale"))); });
+    return { lv: "ok", v: { a: most[0], K: K } };
+  }
+  var CHECKS = {
+    text: function (cs) { var b = pairs(cs).map(function (p) { return [p[0], p[1], contrast(p[0], p[1])]; }).sort(function (x, y) { return y[2] - x[2]; })[0]; return { lv: b[2] >= 4.5 ? "ok" : "warn", v: { a: b[0], b: b[1], r: b[2].toFixed(1) } }; },
+    nontext: function (cs) { var a = cs[cs.length - 1], r = contrast(cs[0], a); return { lv: r >= 3 ? "ok" : "warn", v: { a: a, b: cs[0], r: r.toFixed(1) } }; },
+    cvd: function (cs) { var c = confusions(cs); return c.length ? { lv: "warn", v: { a: c[0].a, b: c[0].b, t: c[0].k } } : { lv: "ok", v: {} }; },
+    grey: function (cs) { var p = pairs(cs).find(function (x) { return contrast(x[0], x[1]) < 1.25; }); return p ? { lv: "warn", v: { a: p[0], b: p[1] } } : { lv: "ok", v: {} }; },
+    cmyk: function (cs) { var r = cs.filter(cmykRisk); return r.length ? { lv: "warn", v: { list: r } } : { lv: "ok", v: {} }; },
+    video: function (cs) { var r = cs.filter(videoUnsafe); return r.length ? { lv: "warn", v: { list: r } } : { lv: "ok", v: {} }; },
+    harmony: function (cs) { return { lv: "info", v: { type: harmonyOf(cs) } }; },
+    temp: function (cs) { return { lv: "info", v: { type: tempOf(cs) } }; },
+    pop: function (cs) { var b = byDesc(cs.slice(1), function (c) { return lch(c)[1]; }); return { lv: b[1] >= 0.12 ? "ok" : "warn", v: { a: b[0] } }; },
+    lrv: function (cs) { var l = lrvOf(cs[0]); return { lv: l < 20 ? "warn" : l > 60 ? "ok" : "info", v: { a: cs[0], l: l.toFixed(0) } }; },
+    lrvdiff: function (cs) { var b = byDesc(cs.slice(1), function (c) { return Math.abs(lrvOf(c) - lrvOf(cs[0])); }); return { lv: b[1] >= 30 ? "ok" : "warn", v: { a: cs[0], b: b[0], d: b[1].toFixed(0) } }; },
+    light2700: function (cs) { return lightCheck(cs, 2700); },
+    light4000: function (cs) { return lightCheck(cs, 4000); },
+    heat: function (cs) { var l = lrvOf(cs[0]); return { lv: l < 25 ? "warn" : l > 55 ? "ok" : "info", v: { a: cs[0], l: l.toFixed(0) } }; },
+    road: function (cs) { var l = lrvOf(cs[0]); return { lv: l >= 30 ? "ok" : "warn", v: { a: cs[0], l: l.toFixed(0) } }; },
+    semantic: function (cs) {
+      var H = cs.map(lch), red = H.some(function (l) { return l[1] > 0.08 && (l[2] < 45 || l[2] > 345); }), green = H.some(function (l) { return l[1] > 0.06 && l[2] >= 120 && l[2] <= 170; });
+      return { lv: red && green ? "warn" : "ok", v: {} };
+    },
+    // UI / web : fond = dominante, couleur d'action = la plus saturée, texte = la plus contrastée (ou blanc / noir).
+    roles: function (cs) {
+      var bg = cs[0], p = byDesc(cs.slice(1), function (c) { return lch(c)[1]; })[0], r = contrast(p, bg), tt = byDesc(cs.slice(1), function (c) { return contrast(c, bg); });
+      return { lv: r >= 3 ? "ok" : "warn", v: { bg: bg, p: p, r: r.toFixed(1), t: tt[1] >= 4.5 ? tt[0] : readableOn(bg).c } };
+    },
+    dark: function (cs) { var d = cs.slice().sort(function (x, y) { return lum(x) - lum(y); })[0], o = byDesc(cs.filter(function (c) { return c !== d; }), function (c) { return contrast(c, d); }); return { lv: o[1] >= 4.5 ? "ok" : "info", v: { bg: d, a: o[0], r: o[1].toFixed(1) } }; },
+    popout: function (cs) { var a = cs[cs.length - 1]; return { lv: dist(lab(a), lab(cs[0])) >= 0.25 ? "ok" : "warn", v: { a: a, b: cs[0] } }; },
+    contrastlvl: function (cs) { var L = cs.map(function (c) { return lch(c)[0]; }), r = Math.max.apply(null, L) - Math.min.apply(null, L); return { lv: "info", v: { type: r < 0.25 ? "doux" : r < 0.5 ? "moyen" : "fort" } }; },
+    mix: function (cs) { return { lv: "info", v: { a: opticalMix(cs) } }; },
+    count: function (cs) { return { lv: "info", v: { n: cs.length } }; }
+  };
+  function jobChecks(job, cs) {
+    var j = JOBS[job] || JOBS.interieur;
+    return j.c.map(function (k) { var r = CHECKS[k](cs); return { k: k, lv: r.lv, v: r.v }; });
+  }
+
   /* ---------- lien partageable : l'état tient dans le hash ----------
-     #c=1448c8&c2=e8b04a&n=55&o=1.0.2&t=3&ex=0&tr=1&sc=mode&lg=en — format à garder rétrocompatible. */
-  var SCENES = ["interieur", "mode", "graphisme"];
+     #c=1448c8&c2=e8b04a&n=55&o=1.0.2&t=3&ex=0&tr=1&sc=mode&s=kasane&lg=en — format à garder rétrocompatible.
+     sc = métier (les anciennes scènes interieur, mode, graphisme en sont restées les identifiants) ; s = source, absente pour Wada. */
+  var SCENES = JOB_IDS, SOURCES = ["wada", "kasane", "afrique", "regles"];
   function readHash(h) {
     var q = {};
     String(h || "").replace(/^#/, "").split("&").forEach(function (kv) { var i = kv.indexOf("="); if (i > 0) { try { q[kv.slice(0, i)] = decodeURIComponent(kv.slice(i + 1)); } catch (e) {} } });
     var c = q.c ? parseHex(q.c) : null; if (!c) return null;
-    return { seed: c, seed2: q.c2 ? parseHex(q.c2) : null, n: Math.max(0, Math.min(348, parseInt(q.n, 10) || 0)),
+    return { seed: c, seed2: q.c2 ? parseHex(q.c2) : null, n: Math.max(0, Math.min(999, parseInt(q.n, 10) || 0)),
       order: q.o ? q.o.split(".").map(Number) : null, size: [2, 3, 4].indexOf(+q.t) >= 0 ? +q.t : 0,
       substitute: q.ex !== "0", transpose: q.tr === "1", scene: SCENES.indexOf(q.sc) >= 0 ? q.sc : "interieur",
+      source: SOURCES.indexOf(q.s) > 0 ? q.s : "wada",
       lang: q.lg === "en" || q.lg === "fr" ? q.lg : null };
   }
   function hashOf(k) {
@@ -228,11 +347,12 @@
     if (!k.substitute) p.push("ex=0");
     if (k.transpose) p.push("tr=1");
     if (k.scene && k.scene !== "interieur") p.push("sc=" + k.scene);
+    if (k.source && k.source !== "wada") p.push("s=" + k.source);
     if (k.lang === "en") p.push("lg=en");
     return "#" + p.join("&");
   }
   // Deux liens désignent le même accord s'ils ne diffèrent que par la scène, le filtre ou la langue.
-  function keyOf(hash) { var k = readHash(hash); return k ? [k.seed, k.seed2 || "", k.n, (k.order || []).join("."), k.transpose ? 1 : 0, k.substitute ? 1 : 0].join("|") : hash; }
+  function keyOf(hash) { var k = readHash(hash); return k ? [k.source, k.seed, k.seed2 || "", k.n, (k.order || []).join("."), k.transpose ? 1 : 0, k.substitute ? 1 : 0].join("|") : hash; }
   // Import de projet : ne garder que des données vérifiées (liens relus et resérialisés, hex valides, textes bornés).
   function cleanItems(arr) {
     return (Array.isArray(arr) ? arr : []).map(function (it) {
@@ -240,7 +360,7 @@
       var colors = Array.isArray(it.colors) ? it.colors.map(function (c) { return typeof c === "string" ? parseHex(c) : null; }) : [];
       if (colors.length < 2 || colors.length > 4 || colors.indexOf(null) >= 0) return null;
       k.lang = null;
-      return { hash: hashOf(k), n: k.n, colors: colors, note: typeof it.note === "string" ? it.note.slice(0, 160) : "", added: typeof it.added === "string" ? it.added.slice(0, 40) : "" };
+      return { hash: hashOf(k), n: k.n, source: k.source, colors: colors, note: typeof it.note === "string" ? it.note.slice(0, 160) : "", added: typeof it.added === "string" ? it.added.slice(0, 40) : "" };
     }).filter(Boolean);
   }
   // Données compactes de wada-data.js ("d94d99ffffff") → tableaux de hex.
@@ -252,7 +372,9 @@
     nameOf: nameOf, hslOf: hslOf, cmykOf: cmykOf, lrvOf: lrvOf, values: values,
     PROPS: PROPS, rolesOf: rolesOf, slugsOf: slugsOf, fid: fid, createSearch: createSearch, build: build,
     simulate: simulate, confusions: confusions, CVD_TYPES: Object.keys(CVD),
-    aseBytes: aseBytes, tokensText: tokensText, tailwindText: tailwindText, gplText: gplText,
-    SCENES: SCENES, readHash: readHash, hashOf: hashOf, keyOf: keyOf, cleanItems: cleanItems, unpack: unpack
+    aseBytes: aseBytes, metaOf: metaOf, tokensText: tokensText, tailwindText: tailwindText, gplText: gplText,
+    RULES: RULES, ruleCombos: ruleCombos, JOBS: JOBS, JOB_IDS: JOB_IDS, FAMILIES: FAMILIES, jobChecks: jobChecks,
+    harmonyOf: harmonyOf, tempOf: tempOf, opticalMix: opticalMix, cmykRisk: cmykRisk, videoUnsafe: videoUnsafe,
+    SCENES: SCENES, SOURCES: SOURCES, readHash: readHash, hashOf: hashOf, keyOf: keyOf, cleanItems: cleanItems, unpack: unpack
   };
 });

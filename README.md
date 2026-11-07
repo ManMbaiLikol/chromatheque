@@ -1,6 +1,10 @@
 # Accords Wada
 
-Choisis une couleur ou dépose une image : l'application propose les combinaisons de Sanzo Wada (*A Dictionary of Color Combinations*, 1933–34) qui la contiennent — ou qui contiennent deux couleurs à la fois —, avec proportions, contrastes, mises en situation (intérieur, mode, graphisme) et export (hex, CSS, prompt, tableau pour tableur).
+Choisis une couleur ou dépose une image : l'application propose les accords qui la contiennent (ou qui contiennent deux couleurs à la fois), avec proportions, contrastes et export (hex, CSS, prompt, tableau pour tableur).
+
+Quatre sources : Sanzo Wada (*A Dictionary of Color Combinations*, 1933–34, par défaut), kasane no irome (Japon, époque Heian), traditions africaines (kente, peinture ndebele, bogolan, yoruba et adire) et règles d'harmonie calculées (Chevreul, Itten). Les sources autres que Wada sont des interprétations, signalées comme telles.
+
+Quinze métiers (graphiste, motion designer, directeur artistique, packaging, UX, UI, web, jeu, architecte d'intérieur, retail, scénographe, produit, transport, styliste, textile) : pour chacun, une mise en situation dessinée et quatre analyses (lisibilité, impression, vidéo, lumière, LRV, daltonisme, mélange optique…).
 
 Pour tes clients : un lien partageable qui rouvre exactement l'accord, un tableau de valeurs (HEX, RGB, HSL, OKLCH, CMJN et LRV approximatifs) et une planche A4 en PNG ou en PDF via l'impression.
 
@@ -48,7 +52,7 @@ node --test
 
 | Dossier | Rôle |
 | --- | --- |
-| `src/` | `core.js` (fonctions pures), `i18n.js` (textes FR/EN), `app.js` (interface), styles, données |
+| `src/` | `core.js` (fonctions pures), `i18n.js` (textes FR/EN), `scenes.js` (mises en situation), `sources-data.js` (autres sources), `app.js` (interface), styles, données Wada |
 | `accord/`, `en/accord/` | fiches statiques générées (ne pas modifier à la main) |
 | `tools/` | génération des fiches et des icônes |
 | `tests/` | tests des fonctions pures |

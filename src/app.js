@@ -1,12 +1,20 @@
-/* Accords Wada — interface. Les fonctions pures (couleur, recherche, exports, liens) sont dans core.js,
-   les textes FR/EN dans i18n.js. Ce fichier gère l'état, le DOM, l'image, la planche, les projets et la PWA. */
+/* Accords Wada — interface. Les fonctions pures (couleur, recherche, analyses, exports, liens) sont dans core.js,
+   les mises en situation dans scenes.js, les textes FR/EN dans i18n.js, les sources autres que Wada dans
+   sources-data.js. Ce fichier gère l'état, le DOM, l'image, la planche, les projets et la PWA. */
 (function () {
   "use strict";
-  var C = window.WadaCore, I18N = window.WADA_I18N;
-  var rgb = C.rgb, toHex = C.toHex, lab = C.lab, labFromRgb = C.labFromRgb, linFromLab = C.linFromLab, delin = C.delin,
-    lch = C.lch, dist = C.dist, contrast = C.contrast, readableOn = C.readableOn, towards = C.towards, shade = C.shade,
+  var C = window.WadaCore, I18N = window.WADA_I18N, SCENES = window.WadaScenes;
+  var toHex = C.toHex, lab = C.lab, labFromRgb = C.labFromRgb, linFromLab = C.linFromLab, delin = C.delin,
+    dist = C.dist, readableOn = C.readableOn, towards = C.towards, shade = C.shade,
     parseHex = C.parseHex, values = C.values, PROPS = C.PROPS, readHash = C.readHash, hashOf = C.hashOf, keyOf = C.keyOf;
-  var WADA = C.unpack(window.WADA_DATA), search = C.createSearch(WADA);
+
+  /* ---------- sources : Wada (défaut), kasane, traditions africaines, règles calculées ---------- */
+  var WADA = C.unpack(window.WADA_DATA), EXTRA = window.WADA_SOURCES || {};
+  var SRC = { wada: { combos: WADA }, kasane: { list: EXTRA.kasane || [] }, afrique: { list: EXTRA.afrique || [] }, regles: { rules: true } };
+  Object.keys(SRC).forEach(function (k) {
+    var s = SRC[k]; if (s.list) s.combos = s.list.map(function (e) { return e.colors; });
+    if (s.combos) s.search = C.createSearch(s.combos);
+  });
 
   /* ---------- langue ---------- */
   var LANG_KEY = "accords-wada-lang", lang = "fr";
@@ -15,7 +23,6 @@
     return vars ? s.replace(/\{(\w+)\}/g, function (m, k) { return vars[k] != null ? vars[k] : m; }) : s;
   }
   function nameOf(hex) { return C.nameOf(hex, lang); }
-  function rolesOf(n) { return C.rolesOf(n, lang); }
   function slugsOf(n) { return C.slugsOf(n, lang); }
   function num(n) { return t("num") + n; }
   function initialLang(k) {
@@ -25,19 +32,36 @@
     try { var s = localStorage.getItem(LANG_KEY); if (s === "fr" || s === "en") return s; } catch (e) {}
     return /^fr\b/i.test(navigator.language || "fr") ? "fr" : "en";
   }
+  function srcName(src) { return t("src." + src + ".name"); }
+  function entryOf(src, n) { var l = SRC[src].list; return l ? l[n - 1] : null; }
+  function ruleKey(n) { return C.RULES[n - 1] || C.RULES[0]; }
+  // Nom court d'un accord : « n° 55 », « 紅梅 », « Kente · or, vert, noir », « Triade · Itten ».
+  function shortLabel(src, n) {
+    if (src === "regles") return t("rule." + ruleKey(n));
+    var e = entryOf(src, n); if (!e) return num(n);
+    return src === "kasane" ? e.jp : e[lang] || e.fr;
+  }
+  function longLabel(src, n) {
+    if (src === "wada") return "Sanzo Wada " + num(n);
+    if (src === "regles") return t("rule." + ruleKey(n));
+    var e = entryOf(src, n); if (!e) return num(n);
+    return src === "kasane" ? e.jp + " " + (e[lang] || e.fr) : e[lang] || e.fr;
+  }
+  function rolesFor(src, k) { return src === "kasane" && k === 2 ? [t("role.kasane.0"), t("role.kasane.1")] : C.rolesOf(k, lang); }
 
   /* ---------- état ---------- */
-  var state = { seed: "#1448c8", seed2: null, multi: false, target: 2, size: 0, substitute: true, transpose: false, sel: 0, order: null, scene: "interieur", dictSize: 0, list: [], wantN: 0, wantOrder: null, light: 6500, vision: "normale" };
+  var state = { source: "wada", seed: "#1448c8", seed2: null, multi: false, target: 2, size: 0, substitute: true, transpose: false, sel: 0, order: null, scene: "interieur", dictSize: 0, list: [], wantN: 0, wantOrder: null, light: 6500, vision: "normale" };
   try {
     var saved = JSON.parse(localStorage.getItem("accords-wada") || "null");
     if (saved && /^#[0-9a-f]{6}$/i.test(saved.seed)) { state.seed = saved.seed.toLowerCase(); state.size = saved.size || 0; state.scene = C.SCENES.indexOf(saved.scene) >= 0 ? saved.scene : "interieur"; }
     if (saved && /^#[0-9a-f]{6}$/i.test(saved.seed2)) { state.seed2 = saved.seed2.toLowerCase(); state.multi = !!saved.multi; }
+    if (saved && SRC[saved.source]) state.source = saved.source;
   } catch (e) {}
-  function save() { try { localStorage.setItem("accords-wada", JSON.stringify({ seed: state.seed, seed2: state.seed2, multi: state.multi, size: state.size, scene: state.scene })); } catch (e) {} }
+  function save() { try { localStorage.setItem("accords-wada", JSON.stringify({ seed: state.seed, seed2: state.seed2, multi: state.multi, size: state.size, scene: state.scene, source: state.source })); } catch (e) {} }
   // Un lien partagé passe avant la mémoire du navigateur.
   function takeLink(k) {
     state.seed = k.seed; state.multi = !!k.seed2; if (k.seed2) state.seed2 = k.seed2;
-    state.size = k.size; state.substitute = k.substitute; state.transpose = k.transpose; state.scene = k.scene;
+    state.size = k.size; state.substitute = k.substitute; state.transpose = k.transpose; state.scene = k.scene; state.source = k.source || "wada";
     state.wantN = k.n; state.wantOrder = k.order;
     if (k.lang) lang = k.lang;
   }
@@ -46,14 +70,15 @@
   if (link) takeLink(link);
   function shareHash() {
     var cur = current();
-    return hashOf({ seed: state.seed, seed2: state.multi ? state.seed2 : null, n: cur ? cur.a.n : 0, order: state.order, size: state.size, substitute: state.substitute, transpose: state.transpose, scene: state.scene, lang: lang });
+    return hashOf({ seed: state.seed, seed2: state.multi ? state.seed2 : null, n: cur ? cur.a.n : 0, order: state.order, size: state.size, substitute: state.substitute, transpose: state.transpose, scene: state.scene, source: state.source, lang: lang });
   }
   function shareUrl() { return location.href.split("#")[0] + shareHash(); }
   function updateLink() { try { history.replaceState(null, "", shareHash()); } catch (e) {} }
 
   var $ = function (id) { return document.getElementById(id); };
   function el(tag, attrs, kids) { var e = document.createElement(tag); if (attrs) for (var k in attrs) { if (k === "style") e.style.cssText = attrs[k]; else if (k === "text") e.textContent = attrs[k]; else e.setAttribute(k, attrs[k]); } (kids || []).forEach(function (c) { e.appendChild(c); }); return e; }
-  function toast(msg) { $("toast").textContent = msg; }
+  var toastTimer = 0;
+  function toast(msg) { var e = $("toast"); e.textContent = msg; clearTimeout(toastTimer); if (msg) toastTimer = setTimeout(function () { e.textContent = ""; }, 5000); }
   function smooth() { return matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth"; }
 
   /* Textes fixes de la page : le français est lu dans index.html, l'anglais vient de i18n.js.
@@ -106,38 +131,108 @@
     state.target = state.multi ? 2 : 1; setPressed("targetSeg", state.target);
   }
 
+  /* ---------- sources ---------- */
+  function renderSources() {
+    var box = $("sourceList"); box.textContent = "";
+    C.SOURCES.forEach(function (id) {
+      var sample = id === "regles" ? C.ruleCombos(state.seed).slice(0, 4).map(function (r) { return r.colors; }) : SRC[id].combos.filter(function (_, i) { return i % Math.max(1, Math.floor(SRC[id].combos.length / 4)) === 0; }).slice(0, 4);
+      var b = el("button", { type: "button", class: "source", "aria-pressed": String(state.source === id), "data-v": id }, [
+        el("span", { class: "source-sw", "aria-hidden": "true" }, sample.map(function (cs) { return el("span", null, cs.map(function (c) { return el("i", { style: "background:" + c }); })); })),
+        el("span", { class: "source-name", text: srcName(id) }),
+        el("span", { class: "source-meta", text: t("src." + id + ".meta") }),
+        el("span", { class: "source-desc", text: t("src." + id + ".desc") })
+      ]);
+      b.addEventListener("click", function () { setSource(id); });
+      box.appendChild(b);
+    });
+    $("sourceNote").innerHTML = t("src.soon");
+  }
+  function setSource(id) {
+    if (!SRC[id] || id === state.source) return;
+    state.source = id; state.sel = 0; state.order = null; state.wantN = 0;
+    applySourceUI(); save(); refresh(); renderDict();
+    toast(t("src.pick", { s: srcName(id) }));
+  }
+  function applySourceUI() {
+    setPressed("sourceList", state.source);
+    $("dictOpts").hidden = state.source === "regles";
+    $("resultsKicker").textContent = t("res.kicker", { s: srcName(state.source) });
+  }
+
+  /* ---------- recherche et cartes ---------- */
+  function computeAll() {
+    var two = state.multi && state.seed2, src = state.source, noSize = false, all;
+    if (src === "regles") {
+      all = C.ruleCombos(state.seed).map(function (r) { return { n: r.n, colors: r.colors, idx: 0, d: 0, sum: 0 }; });
+      var f = all.filter(function (r) { return !state.size || r.colors.length === state.size; });
+      if (f.length) all = f; else noSize = true;
+      return { all: all, noSize: noSize, two: false };
+    }
+    var s = SRC[src].search;
+    all = s(state.seed, state.size, two ? state.seed2 : null);
+    if (!all.length && state.size) { all = s(state.seed, 0, two ? state.seed2 : null); noSize = true; }
+    return { all: all, noSize: noSize, two: two };
+  }
+  function build(r) {
+    if (state.source === "regles") return { n: r.n, wada: r.colors, d: 0, two: false, fid: "fidele", match: state.seed, colors: r.colors.slice(), rule: true };
+    return C.build(r, state.seed, state);
+  }
   function refresh() {
-    var two = state.multi && state.seed2;
-    var all = search(state.seed, state.size, two ? state.seed2 : null);
-    state.list = all.slice(0, 12).map(function (r) { return C.build(r, state.seed, state); });
+    var res = computeAll(), all = res.all;
+    state.list = all.slice(0, 12).map(build);
     if (state.wantN) {
       // Accord demandé par un lien, un projet ou le dictionnaire : on l'ajoute s'il n'est pas dans les 12 premiers.
       var j = state.list.findIndex(function (a) { return a.n === state.wantN; });
-      if (j < 0) { var r = all.find(function (x) { return x.n === state.wantN; }); if (r) { state.list.push(C.build(r, state.seed, state)); j = state.list.length - 1; } }
+      if (j < 0) { var r = all.find(function (x) { return x.n === state.wantN; }); if (r) { state.list.push(build(r)); j = state.list.length - 1; } }
       if (j >= 0) {
         state.sel = j; var o = state.wantOrder, len = state.list[j].colors.length;
         state.order = o && o.length === len && o.slice().sort().join() === Object.keys(o).join() ? o : null;
       }
       state.wantN = 0; state.wantOrder = null;
     }
-    var exact = all.filter(function (r) { return r.d <= 0.06; }).length, pre = two ? "res.two." : "res.";
-    $("resultHint").textContent = t(pre + (exact === 0 ? "none" : exact === 1 ? "one" : "many"), { n: exact });
+    var hint;
+    if (state.source === "regles") hint = t(state.multi ? "res.rules.multi" : "res.rules", { n: all.length });
+    else { var exact = all.filter(function (r) { return r.d <= 0.06; }).length, pre = res.two ? "res.two." : "res."; hint = t(pre + (exact === 0 ? "none" : exact === 1 ? "one" : "many"), { n: exact }); }
+    if (res.noSize) hint = t("res.nosize") + " " + hint;
+    if (state.source !== "wada" && state.source !== "regles") hint = hint.replace(/ dans le dictionnaire| in the dictionary/, "");
+    $("resultHint").textContent = hint;
     var ul = $("cards"); ul.textContent = "";
     state.list.forEach(function (a, i) {
-      var parts = PROPS[a.colors.length], f = t("fid." + a.fid);
+      var parts = PROPS[a.colors.length], f = a.rule ? t("tag.rule") : t("fid." + a.fid), src = state.source;
       var sw = el("span", { class: "sw" }, a.colors.map(function (c, j) { return el("i", { style: "background:" + c + ";flex:" + parts[j] }); }));
-      var b = el("button", { type: "button", class: "card", "aria-pressed": String(i === state.sel), "aria-label": t("card.aria", { n: a.n, fid: f }) }, [
+      var e = entryOf(src, a.n), sub = src === "kasane" && e ? e[lang] || e.fr : src === "afrique" && e ? e.g[lang] : "";
+      var b = el("button", { type: "button", class: "card" + (src === "kasane" ? " jp" : ""), "aria-pressed": String(i === state.sel),
+        "aria-label": src === "wada" ? t("card.aria", { n: a.n, fid: f }) : t("card.aria.src", { name: longLabel(src, a.n), fid: f }) }, [
         sw,
-        el("span", { class: "meta" }, [el("span", { class: "num", text: num(a.n) }), el("span", { class: "tag " + a.fid, text: f })]),
+        el("span", { class: "meta" }, [el("span", { class: "num", text: shortLabel(src, a.n) }), el("span", { class: "tag " + (a.rule ? "rule" : a.fid), text: f })]),
+        sub ? el("span", { class: "sub", text: sub }) : null,
         el("span", { class: "hexes", text: a.colors.join("  ").toUpperCase() })
-      ]);
+      ].filter(Boolean));
       b.addEventListener("click", function () { state.sel = i; state.order = null; refreshCards(); renderDetail(); });
       ul.appendChild(el("li", null, [b]));
     });
-    var hs = $("headStrip"); hs.textContent = ""; (state.list[0] ? state.list[0].colors : [state.seed]).forEach(function (c) { hs.appendChild(el("i", { style: "background:" + c })); });
+    updateRuleSample();
+    renderArt();
     renderDetail();
   }
+  // L'aperçu de la carte « Règles » suit la couleur de départ.
+  function updateRuleSample() {
+    var b = document.querySelector('.source[data-v="regles"] .source-sw'); if (!b) return;
+    b.textContent = "";
+    C.ruleCombos(state.seed).slice(0, 4).forEach(function (r) { b.appendChild(el("span", null, r.colors.map(function (c) { return el("i", { style: "background:" + c }); }))); });
+  }
   function refreshCards() { document.querySelectorAll(".card").forEach(function (b, i) { b.setAttribute("aria-pressed", String(i === state.sel)); }); }
+
+  // Composition de l'en-tête et marque : les couleurs de l'accord en cours, en aplats (à la manière des planches Wada).
+  function renderArt() {
+    var cur = current(), cs = cur ? cur.colors : [state.seed], art = $("heroArt"); art.textContent = "";
+    var pick = function (i) { return cs[i % cs.length]; };
+    [["1/1/5/4", 0], ["1/4/3/7", 1], ["3/4/5/6", 2], ["3/6/7/7", 3], ["5/1/7/3", 1], ["5/3/7/6", 0]].forEach(function (b, i) {
+      art.appendChild(el("i", { style: "grid-area:" + b[0] + ";background:" + (i === 5 ? shade(pick(0), -0.12) : pick(b[1])) }));
+    });
+    art.appendChild(el("b", { style: "background:" + pick(2) }));
+    var mk = $("brandMark").children; for (var i = 0; i < mk.length; i++) mk[i].style.background = pick(i);
+  }
 
   function current() {
     var a = state.list[state.sel]; if (!a) return null;
@@ -145,19 +240,22 @@
     return { a: a, colors: order.map(function (i) { return a.colors[i]; }), order: order };
   }
   function textOn(r) { return t("text.on", { c: t(r.c === "#ffffff" ? "white" : "black"), r: r.r.toFixed(1) }) + (r.r < 4.5 ? t("titles.only") : ""); }
+  function gapText(a) { return a.rule ? "" : a.two ? t("detail.gaps", { a: (a.d1 * 100).toFixed(1), b: (a.d2 * 100).toFixed(1) }) : t("detail.gap", { d: (a.d * 100).toFixed(1) }); }
 
   function renderDetail() {
     var cur = current(); if (!cur) return;
-    var a = cur.a, cs = cur.colors, parts = PROPS[cs.length];
-    $("detailLabel").textContent = t("detail.label", { n: a.n, fid: t("fid." + a.fid) }) +
-      (a.two ? t("detail.gaps", { a: (a.d1 * 100).toFixed(1), b: (a.d2 * 100).toFixed(1) }) : t("detail.gap", { d: (a.d * 100).toFixed(1) }));
-    $("detailTitle").textContent = cs.map(nameOf).join(" · ");
+    var a = cur.a, cs = cur.colors, parts = PROPS[cs.length], src = state.source, f = t("fid." + a.fid);
+    $("detailLabel").textContent = src === "wada" ? t("detail.label", { n: a.n, fid: f }) + gapText(a)
+      : a.rule ? t("detail.rule", { s: srcName(src) }) : t("detail.src", { s: srcName(src), fid: f }) + gapText(a);
+    $("detailTitle").textContent = src === "wada" ? cs.map(nameOf).join(" · ") : longLabel(src, a.n);
+    var e = entryOf(src, a.n);
+    $("detailSource").textContent = src === "wada" ? "" : (e ? e.g[lang] + " · " : "") + cs.map(nameOf).join(" · ");
     var big = $("bigsw"); big.textContent = "";
     cs.forEach(function (c, i) { var s = sim(c), r = readableOn(s); big.appendChild(el("div", { style: "background:" + s + ";color:" + r.c + ";flex:" + parts[i] }, [document.createTextNode(parts[i] + " %")])); });
-    var roles = rolesOf(cs.length);
+    var roles = rolesFor(src, cs.length);
     var rows = $("rows"); rows.textContent = "";
     cs.forEach(function (c, i) {
-      var lc = c.toLowerCase(), r = readableOn(c), mine = state.substitute && (lc === state.seed || (a.two && lc === state.seed2));
+      var lc = c.toLowerCase(), r = readableOn(c), mine = (state.substitute || a.rule) && (lc === state.seed || (a.two && lc === state.seed2));
       var copy = el("button", { type: "button", class: "mini", text: t("copy") });
       copy.addEventListener("click", function () { doCopy(c.toUpperCase(), t("copied", { x: c.toUpperCase() })); });
       rows.appendChild(el("div", { class: "row" }, [
@@ -174,6 +272,7 @@
         .concat([v.hex, v.rgb, v.hsl, v.oklch, v.cmjn, v.lrv].map(function (x) { return el("td", { text: x }); }))));
     });
     $("out").textContent = exportText("css");
+    renderArt();
     renderScene();
     updateFav(); recordHistory();
   }
@@ -191,19 +290,74 @@
       : t("cvd.ok");
   }
 
+  /* ---------- métiers : mise en situation et analyse ---------- */
+  function renderJobs() {
+    var box = $("jobList"); box.textContent = "";
+    C.FAMILIES.forEach(function (fam) {
+      var ids = C.JOB_IDS.filter(function (j) { return C.JOBS[j].f === fam; }), lab2 = "fam-" + fam;
+      var g = el("div", { class: "jobfam", role: "group", "aria-labelledby": lab2 }, [el("p", { class: "label", id: lab2, text: t("fam." + fam) })]);
+      var row = el("div", { class: "jobrow" });
+      ids.forEach(function (j) {
+        var b = el("button", { type: "button", class: "job", "data-v": j, "aria-pressed": String(state.scene === j), title: t("job." + j + ".d"), text: t("job." + j) });
+        b.addEventListener("click", function () { state.scene = j; save(); setPressed("jobList", j); renderScene(); });
+        row.appendChild(b);
+      });
+      g.appendChild(row); box.appendChild(g);
+    });
+  }
+  // Variables d'une analyse → texte : un hex devient « nom HEX », une liste de hex est jointe.
+  function fmtVars(v) {
+    var o = {};
+    Object.keys(v).forEach(function (k) {
+      var x = v[k];
+      if (Array.isArray(x)) o[k] = x.map(function (h) { return nameOf(h) + " " + h.toUpperCase(); }).join(", ");
+      else if (typeof x === "string" && /^#[0-9a-f]{6}$/.test(x)) o[k] = nameOf(x) + " " + x.toUpperCase();
+      else o[k] = x;
+    });
+    return o;
+  }
+  var TYPE_PREFIX = { harmony: "harm.", temp: "temp.", contrastlvl: "cl." };
+  function checkText(c) {
+    var v = fmtVars(c.v);
+    if (TYPE_PREFIX[c.k]) v.type = t(TYPE_PREFIX[c.k] + c.v.type);
+    if (c.k === "cvd" && c.v.t) v.t = t("cvd." + c.v.t);
+    return t("chk." + (/^light/.test(c.k) ? "light" : c.k) + "." + c.lv, v);
+  }
+  function jobLines(cs) { return C.jobChecks(state.scene, cs).map(function (c) { return { lv: c.lv, text: checkText(c) }; }); }
+  function sceneSvg(cs, n) {
+    return SCENES.render(state.scene, cs, { aria: t("scene.aria", { j: t("job." + state.scene) }), label: shortLabel(state.source, n), webTitle: t("scene.web.title") });
+  }
+  function renderScene() {
+    var cur = current(); if (!cur) return;
+    $("jobDesc").textContent = t("job." + state.scene + ".d");
+    $("scene").innerHTML = sceneSvg(cur.colors.map(sim), cur.a.n);
+    $("sceneHint").textContent = t("scene." + state.scene);
+    var ul = $("impact"); ul.textContent = "";
+    jobLines(cur.colors).forEach(function (l) { ul.appendChild(el("li", { class: "chk " + l.lv }, [el("span", { class: "ico", "aria-hidden": "true", text: l.lv === "ok" ? "✓" : l.lv === "warn" ? "!" : "i" }), el("span", { text: l.text })])); });
+    ul.appendChild(el("li", { class: "chk note", text: t("chk.approx") }));
+    renderSimNotes(cur.colors);
+    updateLink();
+  }
+
+  /* ---------- copies et exports ---------- */
+  function exportMeta() {
+    var cur = current(), n = cur.a.n, src = state.source;
+    if (src === "wada") return n;
+    return { key: src + "-" + n, title: srcName(src) + " · " + longLabel(src, n), prefix: src, note: t("exp.note.src") };
+  }
   function exportText(kind) {
-    var cur = current(), cs = cur.colors, parts = PROPS[cs.length], n = cur.a.n;
+    var cur = current(), cs = cur.colors, parts = PROPS[cs.length], n = cur.a.n, src = state.source;
     if (kind === "hex") return cs.map(function (c) { return c.toUpperCase(); }).join(", ");
-    if (kind === "prompt") return t("exp.prompt", { k: cs.length, list: cs.join(", "), n: n, p: parts.join("/") });
+    if (kind === "prompt") return src === "wada" ? t("exp.prompt", { k: cs.length, list: cs.join(", "), n: n, p: parts.join("/") }) : t("exp.prompt.src", { k: cs.length, list: cs.join(", "), s: srcName(src), name: longLabel(src, n), p: parts.join("/") });
     if (kind === "link") return shareUrl();
     if (kind === "table") {
-      var roles = rolesOf(cs.length);
+      var roles = rolesFor(src, cs.length);
       return t("table.head") + "\n" +
         cs.map(function (c, i) { var v = values(c); return [roles[i], parts[i], v.hex, v.rgb, v.hsl, v.oklch, v.cmjn, v.lrv, nameOf(c)].join("\t"); }).join("\n") +
-        "\n\n" + t("table.note", { n: n });
+        "\n\n" + (src === "wada" ? t("table.note", { n: n }) : t("table.note.src", { s: srcName(src), name: longLabel(src, n) }));
     }
-    var names = slugsOf(cs.length);
-    return "/* Sanzo Wada " + num(n) + " — " + parts.join("/") + " */\n:root {\n" + cs.map(function (c, i) { return "  --wada-" + names[i] + ": " + c + ";"; }).join("\n") + "\n}";
+    var names = slugsOf(cs.length), pre = src === "wada" ? "wada" : src;
+    return "/* " + (src === "wada" ? "Sanzo Wada " + num(n) : srcName(src) + " · " + longLabel(src, n)) + " — " + parts.join("/") + " */\n:root {\n" + cs.map(function (c, i) { return "  --" + pre + "-" + names[i] + ": " + c + ";"; }).join("\n") + "\n}";
   }
   function doCopy(text, msg) {
     try {
@@ -218,51 +372,6 @@
     });
   });
   $("rotate").addEventListener("click", function () { var cur = current(); if (!cur) return; var o = cur.order.slice(); o.push(o.shift()); state.order = o; toast(t("dominant", { x: nameOf(cur.a.colors[o[0]]) })); renderDetail(); });
-
-  /* ---------- mises en situation ---------- */
-  function sceneOf(scene, cs, n, labels) {
-    var A = cs[0], B = cs[1], Cc = cs[2] || cs[1], D = cs[3] || cs[2] || cs[0], svg, aria = t("scene.aria." + scene);
-    if (scene === "interieur") {
-      svg = '<svg viewBox="0 0 480 340" role="img" aria-label="' + aria + '">' +
-        '<rect width="480" height="250" fill="' + A + '"/>' +
-        '<rect y="250" width="480" height="90" fill="' + shade(A, -0.22) + '"/>' +
-        '<rect x="300" y="44" width="120" height="150" fill="' + shade(A, 0.12) + '"/><rect x="310" y="54" width="100" height="130" fill="' + D + '"/><circle cx="360" cy="110" r="30" fill="' + Cc + '"/>' +
-        '<ellipse cx="200" cy="300" rx="190" ry="26" fill="' + D + '" opacity=".85"/>' +
-        '<rect x="60" y="170" width="250" height="70" rx="10" fill="' + B + '"/><rect x="48" y="150" width="40" height="110" rx="10" fill="' + shade(B, -0.06) + '"/><rect x="282" y="150" width="40" height="110" rx="10" fill="' + shade(B, -0.06) + '"/>' +
-        '<rect x="70" y="140" width="230" height="44" rx="10" fill="' + shade(B, 0.05) + '"/>' +
-        '<rect x="96" y="124" width="54" height="44" rx="8" fill="' + Cc + '" transform="rotate(-8 123 146)"/><rect x="214" y="126" width="54" height="44" rx="8" fill="' + D + '" transform="rotate(7 241 148)"/>' +
-        '<rect x="70" y="240" width="10" height="26" fill="' + shade(B, -0.25) + '"/><rect x="290" y="240" width="10" height="26" fill="' + shade(B, -0.25) + '"/>' +
-        '<rect x="388" y="214" width="56" height="52" rx="4" fill="' + shade(A, -0.3) + '"/><path d="M406 214 q10 -60 0 -110 M416 214 q22 -50 30 -96 M412 214 q-20 -40 -34 -70" stroke="' + Cc + '" stroke-width="5" fill="none" stroke-linecap="round"/></svg>';
-    } else if (scene === "mode") {
-      svg = '<svg viewBox="0 0 480 340" role="img" aria-label="' + aria + '">' +
-        '<rect width="480" height="340" fill="#e4e3de"/><rect y="300" width="480" height="40" fill="#d6d5cf"/>' +
-        '<path d="M180 70 L300 70 L330 210 L150 210 Z" fill="' + B + '"/>' +
-        '<path d="M170 240 L310 240 L300 330 L250 330 L240 270 L230 330 L180 330 Z" fill="' + Cc + '"/>' +
-        '<path d="M150 60 L210 54 L240 120 L270 54 L330 60 L360 300 L290 300 L280 210 L200 210 L190 300 L120 300 Z" fill="' + A + '"/>' +
-        '<path d="M210 54 L240 120 L270 54 L262 48 L240 92 L218 48 Z" fill="' + shade(A, -0.12) + '"/>' +
-        '<path d="M222 40 Q240 30 258 40 L256 60 Q240 70 224 60 Z" fill="' + D + '"/><path d="M226 58 L222 130 L236 128 Z" fill="' + D + '"/>' +
-        '<rect x="368" y="200" width="70" height="56" rx="6" fill="' + D + '"/><path d="M382 200 Q403 168 424 200" stroke="' + D + '" stroke-width="6" fill="none"/>' +
-        '<rect x="170" y="210" width="140" height="10" fill="' + shade(A, -0.2) + '"/></svg>';
-    } else {
-      var tc = readableOn(A).c, best = cs.slice(1).map(function (c) { return [c, contrast(c, A)]; }).sort(function (x, y) { return y[1] - x[1]; })[0];
-      var title = best[1] >= 3 ? best[0] : tc;
-      svg = '<svg viewBox="0 0 480 340" role="img" aria-label="' + aria + '">' +
-        '<rect width="480" height="340" fill="' + A + '"/>' +
-        '<circle cx="360" cy="120" r="92" fill="' + B + '"/>' +
-        '<rect x="300" y="160" width="150" height="150" fill="' + Cc + '"/>' +
-        '<rect x="300" y="160" width="60" height="60" fill="' + D + '"/>' +
-        '<text x="32" y="210" font-family="Shippori Mincho, Georgia, serif" font-weight="700" font-size="58" fill="' + title + '">配色</text>' +
-        '<text x="32" y="252" font-family="Zen Kaku Gothic New, sans-serif" font-weight="700" font-size="22" fill="' + title + '">' + t("scene.poster", { n: n }) + '</text>' +
-        '<text x="32" y="300" font-family="IBM Plex Mono, monospace" font-size="12" fill="' + tc + '">' + (labels || cs).join("  ").toUpperCase() + '</text></svg>';
-    }
-    return { svg: svg, hint: t("scene." + scene) };
-  }
-  function renderScene() {
-    var cur = current(), s = sceneOf(state.scene, cur.colors.map(sim), cur.a.n, cur.colors);
-    $("scene").innerHTML = s.svg; $("sceneHint").textContent = s.hint;
-    renderSimNotes(cur.colors);
-    updateLink();
-  }
 
   /* ---------- planche client : A4 paysage, 300 dpi (dessinée en unités de 1754 × 1240, puis ×2) ---------- */
   var SHEET = { w: 1754, h: 1240, scale: 2, m: 72, bg: "#f4f4f2", ink: "#1b1b19", muted: "#5d5d58", line: "#d9d9d5" };
@@ -280,20 +389,25 @@
     return y;
   }
   function fitText(ctx, text, maxW) { if (ctx.measureText(text).width <= maxW) return text; while (text.length > 4 && ctx.measureText(text + "…").width > maxW) text = text.slice(0, -1); return text + "…"; }
+  function sheetHead(a) {
+    var src = state.source, f = t("fid." + a.fid), tr = state.transpose && !a.rule ? t(src === "wada" ? "sheet.transposed" : "sheet.transposed.src") : "";
+    if (src === "wada") return t("sheet.head", { n: a.n, fid: f }) + tr;
+    return (a.rule ? t("sheet.head.rule", { s: srcName(src), name: longLabel(src, a.n) }) : t("sheet.head.src", { s: srcName(src), name: longLabel(src, a.n), fid: f })) + tr;
+  }
   function makeSheet() {
-    var cur = current(), cs = cur.colors, a = cur.a, parts = PROPS[cs.length], roles = rolesOf(cs.length), sc = sceneOf(state.scene, cs, a.n), S = SHEET;
+    var cur = current(), cs = cur.colors, a = cur.a, parts = PROPS[cs.length], roles = rolesFor(state.source, cs.length), S = SHEET;
     var wanted = ["700 40px " + FONT.display, "400 16px " + FONT.body, "700 16px " + FONT.body, "400 14px " + FONT.mono];
     var fontsReady = document.fonts ? Promise.all(wanted.map(function (f) { return document.fonts.load(f).catch(function () {}); })) : Promise.resolve();
-    return Promise.all([fontsReady, svgImage(sc.svg).catch(function () { return null; })]).then(function (res) {
+    return Promise.all([fontsReady, svgImage(sceneSvg(cs, a.n)).catch(function () { return null; })]).then(function (res) {
       var img = res[1], cv = document.createElement("canvas"); cv.width = S.w * S.scale; cv.height = S.h * S.scale;
       var x = cv.getContext("2d"); x.scale(S.scale, S.scale); x.textBaseline = "top";
       x.fillStyle = S.bg; x.fillRect(0, 0, S.w, S.h);
       var M = S.m, LW = 900, RX = M + LW + 56, RW = S.w - M - RX;
 
       x.fillStyle = S.muted; x.font = "700 14px " + FONT.body; if ("letterSpacing" in x) x.letterSpacing = "2px";
-      x.fillText((t("sheet.head", { n: a.n, fid: t("fid." + a.fid) }) + (state.transpose ? t("sheet.transposed") : "")).toUpperCase(), M, M);
+      x.fillText(fitText(x, sheetHead(a).toUpperCase(), S.w - 2 * M), M, M);
       if ("letterSpacing" in x) x.letterSpacing = "0px";
-      var title = cs.map(nameOf).join(" · "), size = 54;
+      var title = state.source === "wada" ? cs.map(nameOf).join(" · ") : longLabel(state.source, a.n), size = 54;
       do { x.font = "700 " + size + "px " + FONT.display; size -= 2; } while (x.measureText(title).width > S.w - 2 * M && size > 26);
       x.fillStyle = S.ink; x.fillText(title, M, M + 36);
 
@@ -321,19 +435,23 @@
         });
       });
 
-      // Mise en situation
+      // Mise en situation et analyse pour le métier choisi
       var sh = RW * 340 / 480;
       if (img) x.drawImage(img, RX, top, RW, sh);
       x.strokeStyle = S.line; x.strokeRect(RX + 0.5, top + 0.5, RW - 1, sh - 1);
-      x.fillStyle = S.muted; x.font = "400 15px " + FONT.body;
-      var hy = wrapText(x, sc.hint, RX, top + sh + 16, RW, 22), rd = readableOn(cs[0]);
-      wrapText(x, t("sheet.legible", { c: t(rd.c === "#ffffff" ? "white" : "black"), r: rd.r.toFixed(1), t: rd.r < 4.5 ? t("titles.only") : "" }), RX, hy + 8, RW, 22);
+      x.fillStyle = S.ink; x.font = "700 15px " + FONT.body;
+      var hy = wrapText(x, t("sheet.job", { j: t("job." + state.scene) }), RX, top + sh + 16, RW, 22);
+      x.fillStyle = S.muted; x.font = "400 14px " + FONT.body;
+      hy = wrapText(x, t("scene." + state.scene), RX, hy + 2, RW, 20);
+      var rd = readableOn(cs[0]);
+      hy = wrapText(x, t("sheet.legible", { c: t(rd.c === "#ffffff" ? "white" : "black"), r: rd.r.toFixed(1), t: rd.r < 4.5 ? t("titles.only") : "" }), RX, hy + 6, RW, 20);
+      jobLines(cs).forEach(function (l) { if (hy < S.h - M - 90) hy = wrapText(x, (l.lv === "ok" ? "✓ " : l.lv === "warn" ? "! " : "· ") + l.text, RX, hy + 6, RW, 20); });
 
       // Pied de planche
       var fy = S.h - M - 58;
       x.fillStyle = S.line; x.fillRect(M, fy, S.w - 2 * M, 1);
       x.fillStyle = S.muted; x.font = "400 13px " + FONT.body;
-      x.fillText(t("sheet.foot"), M, fy + 14);
+      x.fillText(fitText(x, t(state.source === "wada" ? "sheet.foot" : "sheet.foot.src"), S.w - 2 * M), M, fy + 14);
       x.font = "400 12px " + FONT.mono;
       var date = new Date().toLocaleDateString(t("locale")), right = "Accords Wada — Manso Olivier · MAN MBAÏ LIKOL", rw = x.measureText(right).width;
       x.fillText(fitText(x, t("sheet.date", { d: date }) + " · " + shareUrl(), S.w - 2 * M - rw - 40), M, fy + 38);
@@ -341,12 +459,13 @@
       return cv;
     });
   }
+  function fileBase() { var cur = current(); return "accord-" + state.source + "-" + cur.a.n; }
   $("sheetPng").addEventListener("click", function () {
-    var n = current().a.n; toast(t("sheet.preparing"));
+    var base = fileBase(); toast(t("sheet.preparing"));
     makeSheet().then(function (cv) {
       cv.toBlob(function (b) {
         if (!b) { toast(t("sheet.fail")); return; }
-        download("accord-wada-" + n + ".png", b, "image/png");
+        download(base + ".png", b, "image/png");
         toast(t("sheet.png"));
       }, "image/png");
     }).catch(function () { toast(t("sheet.fail")); });
@@ -373,7 +492,6 @@
     });
   }
   seg("sizeSeg", "size", function () { state.sel = 0; state.order = null; refresh(); });
-  seg("sceneSeg", "scene", renderScene);
   seg("lightSeg", "light", renderDetail);
   seg("visionSeg", "vision", renderDetail);
   seg("dictSeg", "dictSize", renderDict);
@@ -396,7 +514,7 @@
     state.multi = e.target.checked; state.sel = 0; state.order = null;
     document.querySelectorAll(".chip.on2").forEach(function (c) { c.classList.remove("on2"); });
     if (state.multi) {
-      // Image chargée : sa 2e couleur marquante ; sinon la première compagne Wada de l'accord en tête.
+      // Image chargée : sa 2e couleur marquante ; sinon la première compagne de l'accord en tête.
       var second = imgClusters.length ? secondCluster(imgClusters.lead) : null;
       if (second) { state.seed2 = second.hex; markChip(second, "on2"); }
       else if (!state.seed2) state.seed2 = state.list[0] ? state.list[0].wada.filter(function (c) { return c !== state.list[0].match; })[0] : "#e8dcc0";
@@ -468,20 +586,26 @@
   drop.addEventListener("drop", function (e) { loadFile(e.dataTransfer.files[0]); });
   document.addEventListener("paste", function (e) { var it = Array.prototype.find.call(e.clipboardData.items || [], function (i) { return i.type.indexOf("image") === 0; }); if (it) loadFile(it.getAsFile()); });
 
-  /* ---------- dictionnaire ---------- */
+  /* ---------- répertoire de la source choisie ---------- */
   function renderDict() {
-    var g = $("dictGrid"); g.textContent = "";
-    WADA.forEach(function (c, i) {
+    var g = $("dictGrid"), src = state.source, rules = src === "regles"; g.textContent = "";
+    $("dictKicker").textContent = src === "wada" ? t("dict.kicker.wada") : rules ? srcName(src) : t("dict.kicker.src", { k: SRC[src].combos.length });
+    $("dictTitle").textContent = t("dict.title", { s: srcName(src) });
+    $("dictNote").innerHTML = rules ? t("dict.rules") + " " + t("src.regles.note") : t("src." + src + ".note");
+    $("dictPages").hidden = src !== "wada"; $("dictSeg").hidden = rules;
+    if (rules) return;
+    SRC[src].combos.forEach(function (c, i) {
       if (state.dictSize && c.length !== state.dictSize) return;
-      var b = el("button", { type: "button", "aria-label": t(state.multi ? "dict.aria2" : "dict.aria", { n: i + 1, list: c.join(", ") }) }, [
-        el("span", { class: "sw" }, c.map(function (x) { return el("i", { style: "background:" + x }); })), el("span", { text: num(i + 1) })]);
+      var n = i + 1, aria = src === "wada" ? t(state.multi ? "dict.aria2" : "dict.aria", { n: n, list: c.join(", ") }) : t("dict.aria.src", { name: longLabel(src, n), list: c.join(", ") });
+      var b = el("button", { type: "button", "aria-label": aria }, [
+        el("span", { class: "sw" }, c.map(function (x) { return el("i", { style: "background:" + x }); })), el("span", { text: shortLabel(src, n) })]);
       b.addEventListener("click", function () {
         if (state.multi) { state.seed2 = c[1]; showSeed2(); document.querySelectorAll(".chip.on2").forEach(function (x) { x.classList.remove("on2"); }); }
-        state.wantN = i + 1;
+        state.wantN = n;
         setSeed(c[0]);
-        $("detail").scrollIntoView({ behavior: smooth() });
+        $("accord").scrollIntoView({ behavior: smooth() });
       });
-      g.appendChild(el("li", null, [b]));
+      g.appendChild(el("li", src === "wada" ? null : { class: "wide" }, [b]));
     });
   }
 
@@ -491,16 +615,16 @@
     document.body.appendChild(l); l.click(); l.remove(); setTimeout(function () { URL.revokeObjectURL(u); }, 4000);
   }
   function exportItems() {
-    var cs = current().colors, roles = rolesOf(cs.length), slugs = slugsOf(cs.length), parts = PROPS[cs.length];
+    var cs = current().colors, roles = rolesFor(state.source, cs.length), slugs = slugsOf(cs.length), parts = PROPS[cs.length];
     return cs.map(function (c, i) { return { hex: c.toLowerCase(), role: roles[i], slug: slugs[i], pct: parts[i], name: nameOf(c) }; });
   }
   document.querySelectorAll("[data-export]").forEach(function (b) {
     b.addEventListener("click", function () {
-      var k = b.getAttribute("data-export"), n = current().a.n, items = exportItems(), base = "accord-wada-" + n;
-      if (k === "ase") download(base + ".ase", C.aseBytes("Sanzo Wada " + num(n), items), "application/octet-stream");
-      if (k === "tokens") download(base + ".tokens.json", C.tokensText(n, items, lang), "application/json");
-      if (k === "tailwind") download(base + ".tailwind.css", C.tailwindText(n, items, lang), "text/css");
-      if (k === "gpl") download(base + ".gpl", C.gplText(n, items, lang));
+      var k = b.getAttribute("data-export"), meta = exportMeta(), items = exportItems(), base = fileBase();
+      if (k === "ase") download(base + ".ase", C.aseBytes(C.metaOf(meta, lang).title, items), "application/octet-stream");
+      if (k === "tokens") download(base + ".tokens.json", C.tokensText(meta, items, lang), "application/json");
+      if (k === "tailwind") download(base + ".tailwind.css", C.tailwindText(meta, items, lang), "text/css");
+      if (k === "gpl") download(base + ".gpl", C.gplText(meta, items, lang));
       toast(t("exp." + k));
     });
   });
@@ -537,22 +661,23 @@
     var k = readHash(h); if (!k) return;
     k.lang = lang; h = hashOf(k);
     if (location.hash !== h) location.hash = h;
-    $("detail").scrollIntoView({ behavior: smooth() });
+    $("accord").scrollIntoView({ behavior: smooth() });
   }
+  function itemLabel(it) { var k = readHash(it.hash), src = k ? k.source : "wada"; return src === "wada" ? num(it.n) : srcName(src) + " · " + shortLabel(src, it.n); }
   function accordItem(it, opts) {
-    var parts = PROPS[it.colors.length] || [];
-    var open = el("button", { type: "button", class: "saved-open", "aria-label": t("proj.open", { n: it.n, list: it.colors.join(", ") }) }, [
+    var parts = PROPS[it.colors.length] || [], label = itemLabel(it);
+    var open = el("button", { type: "button", class: "saved-open", "aria-label": t("proj.open", { n: label, list: it.colors.join(", ") }) }, [
       el("span", { class: "sw" }, it.colors.map(function (c, j) { return el("i", { style: "background:" + c + ";flex:" + (parts[j] || 1) }); })),
-      el("span", { class: "num", text: num(it.n) })]);
+      el("span", { class: "num", text: label })]);
     open.addEventListener("click", function () { openHash(it.hash); });
     var kids = [open];
     if (opts.note) {
-      var note = el("input", { class: "textin", type: "text", maxlength: "160", placeholder: t("proj.note"), "aria-label": t("proj.note.aria", { n: it.n }) });
+      var note = el("input", { class: "textin", type: "text", maxlength: "160", placeholder: t("proj.note"), "aria-label": t("proj.note.aria", { n: label }) });
       note.value = it.note || "";
       note.addEventListener("change", function () { it.note = note.value.trim(); persist(); });
       kids.push(note);
     }
-    if (opts.remove) { var rm = el("button", { type: "button", class: "mini", text: t("proj.remove"), "aria-label": t("proj.remove.aria", { n: it.n }) }); rm.addEventListener("click", opts.remove); kids.push(rm); }
+    if (opts.remove) { var rm = el("button", { type: "button", class: "mini", text: t("proj.remove"), "aria-label": t("proj.remove.aria", { n: label }) }); rm.addEventListener("click", opts.remove); kids.push(rm); }
     return el("li", { class: "saved-item" }, kids);
   }
   function renderProjects() {
@@ -602,7 +727,7 @@
     var f = e.target.files[0]; e.target.value = ""; if (!f) return;
     f.text().then(function (txt) {
       var d = JSON.parse(txt); if (!d || d.format !== "accords-wada-projet") throw new Error("format");
-      var items = C.cleanItems(d.items); if (!items.length) throw new Error("vide");
+      var items = C.cleanItems(d.items).map(function (it) { delete it.source; return it; }); if (!items.length) throw new Error("vide");
       var name = typeof d.name === "string" && d.name.trim() ? d.name.trim().slice(0, 60) : t("proj.importname");
       if (store.projects.some(function (q) { return q.name === name; })) name = (name + " (import)").slice(0, 60);
       var id = newId(); store.projects.push({ id: id, name: name, items: items }); store.current = id;
@@ -628,12 +753,13 @@
   function applyLang() {
     applyStatic(); setPressed("langSeg", lang);
     if (state.seed2) showSeed2();
+    renderSources(); renderJobs(); applySourceUI();
     renderDict(); renderProjects(); renderHistory();
     setSeed(state.seed, true);
   }
   function start() {
     $("substitute").checked = state.substitute; $("transpose").checked = state.transpose;
-    setPressed("sizeSeg", state.size); setPressed("sceneSeg", state.scene);
+    setPressed("sizeSeg", state.size);
     applyMulti();
     applyLang();  // setSeed → refresh() sélectionne l'accord demandé par le lien (state.wantN)
   }
