@@ -10,17 +10,49 @@ Pour vérifier : aperçu sous lumière du jour, neutre ou chaude (6500, 4000, 27
 
 Pour t'organiser : projets nommés avec favoris et notes, historique récent, export et import JSON (tout reste dans ton navigateur).
 
+En français et en anglais, installable comme une application et utilisable hors ligne. Chaque combinaison a aussi sa propre page (`accord/55/`, `en/accord/55/`).
+
 ## Lancer
 
-Ouvre `index.html` dans un navigateur. Aucune installation.
+Sers le dossier avec un petit serveur local, puis ouvre http://localhost:8000 :
 
-Pour un serveur local (facultatif) : `python -m http.server 8000` dans ce dossier, puis http://localhost:8000.
+```bash
+python -m http.server 8000
+```
 
-## Contenu
+Ouvrir `index.html` directement marche aussi, mais sans mémoire du navigateur, sans mode hors ligne et sans installation.
+
+## Mettre en ligne
+
+Le site est statique : aucun build, il suffit de publier le dossier tel quel.
+
+**GitHub Pages**
+1. Crée un dépôt vide sur github.com (par exemple `accords-wada`).
+2. Relie ce dossier au dépôt et pousse la branche `master`.
+3. Dans le dépôt : *Settings → Pages → Deploy from a branch*, branche `master`, dossier `/ (root)`.
+4. Le site sera à `https://<ton-compte>.github.io/accords-wada/`.
+
+**Netlify** : glisse le dossier sur app.netlify.com/drop (ou relie le dépôt GitHub), sans commande de build.
+
+Une fois l'adresse connue, régénère les fiches avec leurs liens canoniques, le `sitemap.xml` et le `robots.txt`, puis republie :
+
+```bash
+node tools/generate-pages.js --base=https://<ton-compte>.github.io/accords-wada/
+```
+
+## Développer
+
+```bash
+node --test
+```
 
 | Dossier | Rôle |
 | --- | --- |
-| `src/` | styles, logique, données de l'application |
+| `src/` | `core.js` (fonctions pures), `i18n.js` (textes FR/EN), `app.js` (interface), styles, données |
+| `accord/`, `en/accord/` | fiches statiques générées (ne pas modifier à la main) |
+| `tools/` | génération des fiches et des icônes |
+| `tests/` | tests des fonctions pures |
+| `icons/`, `manifest.webmanifest`, `sw.js` | application installable et hors ligne |
 | `data/` | le dictionnaire Wada en JSON |
 | `design-system/` | système de design MML Codes Image (tokens, règles, composants) |
 

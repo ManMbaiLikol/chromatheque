@@ -23,6 +23,10 @@ p { margin: 0 }
 button { font: inherit; color: inherit; cursor: pointer }
 :focus-visible { outline: 2px solid var(--accent); outline-offset: 2px }
 
+/* Barre du haut : langue et installation */
+.topbar { display: flex; justify-content: flex-end; align-items: center; gap: 8px; margin-bottom: -24px }
+.topbar .seg button { padding: 5px 10px; font-size: 12px; font-weight: 700; letter-spacing: .06em }
+
 /* En-tête */
 .head { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 16px 32px; align-items: end }
 .head p.lede { max-width: 60ch; color: var(--muted); margin-top: 12px }
@@ -144,12 +148,25 @@ select, .textin { font: inherit; font-size: 14px; color: var(--ink); background:
 .dict { display: grid; gap: 16px; border-top: 1px solid var(--line); padding-top: 32px }
 .dict-head { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: end; gap: 12px }
 .dict-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(96px, 1fr)); gap: 10px 8px; list-style: none; margin: 0; padding: 0 }
-.dict-grid button { width: 100%; background: none; border: 0; padding: 0; display: grid; gap: 3px; text-align: left }
+.dict-grid button, .dict-grid a { width: 100%; background: none; border: 0; padding: 0; display: grid; gap: 3px; text-align: left; color: inherit; text-decoration: none }
+.dict-grid a:hover .sw { outline: 1px solid var(--ink); outline-offset: 2px }
 .dict-grid .sw { display: flex; height: 30px; border-radius: 2px; overflow: hidden }
 .dict-grid .sw i { flex: 1 }
 .dict-grid span { font: 400 11px var(--mono); color: var(--muted) }
 .dict-grid button:hover .sw { outline: 1px solid var(--ink); outline-offset: 2px }
 .note { font-size: 13px; color: var(--muted); max-width: 75ch }
+.note a, .crumbs a { color: var(--ink) }
+
+/* Fiches statiques par accord (accord/N/, en/accord/N/) */
+.page { gap: 28px }
+.page .topbar { margin-bottom: 0 }
+.crumbs { font-size: 13px; color: var(--muted) }
+.page header { display: grid; gap: 10px }
+.page .lede { max-width: 65ch; color: var(--muted) }
+.page .actions { align-items: center }
+a.btn { display: inline-block; text-decoration: none }
+.also { display: grid; gap: 12px }
+.pager { display: flex; justify-content: space-between; gap: 12px; border-top: 1px solid var(--line); padding-top: 20px }
 @media (prefers-reduced-motion: reduce) { .card { transition: none } .card:hover { transform: none } }
 
 /* Impression : la planche générée seule (bouton « Imprimer ou PDF ») ; sinon, le détail de l'accord sur fond blanc. */
@@ -162,7 +179,7 @@ select, .textin { font: inherit; font-size: 14px; color: var(--ink); background:
   html.has-sheet .wrap { display: none }
   html.has-sheet .print-sheet { display: block; width: auto; height: auto; max-width: 100%; max-height: 189mm; margin: 0 auto }
   html:not(.has-sheet) .head, html:not(.has-sheet) .main, html:not(.has-sheet) .dict, html:not(.has-sheet) .actions,
-  html:not(.has-sheet) .projects, html:not(.has-sheet) .sim, html:not(.has-sheet) #simHint,
+  html:not(.has-sheet) .projects, html:not(.has-sheet) .sim, html:not(.has-sheet) #simHint, html:not(.has-sheet) .topbar,
   html:not(.has-sheet) .out, html:not(.has-sheet) .toast, html:not(.has-sheet) .scene .seg, html:not(.has-sheet) .mini { display: none }
   html:not(.has-sheet) .detail { border-top: 0; padding-top: 0 }
 }

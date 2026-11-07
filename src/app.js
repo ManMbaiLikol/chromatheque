@@ -1,195 +1,36 @@
+/* Accords Wada — interface. Les fonctions pures (couleur, recherche, exports, liens) sont dans core.js,
+   les textes FR/EN dans i18n.js. Ce fichier gère l'état, le DOM, l'image, la planche, les projets et la PWA. */
 (function () {
   "use strict";
-  var WADA = window.WADA_DATA.map(function (s) { var o = []; for (var i = 0; i < s.length; i += 6) o.push("#" + s.slice(i, i + 6)); return o; });
+  var C = window.WadaCore, I18N = window.WADA_I18N;
+  var rgb = C.rgb, toHex = C.toHex, lab = C.lab, labFromRgb = C.labFromRgb, linFromLab = C.linFromLab, delin = C.delin,
+    lch = C.lch, dist = C.dist, contrast = C.contrast, readableOn = C.readableOn, towards = C.towards, shade = C.shade,
+    parseHex = C.parseHex, values = C.values, PROPS = C.PROPS, readHash = C.readHash, hashOf = C.hashOf, keyOf = C.keyOf;
+  var WADA = C.unpack(window.WADA_DATA), search = C.createSearch(WADA);
 
-  /* ---------- couleur ---------- */
-  function rgb(hex) { var n = parseInt(hex.slice(1), 16); return [(n >> 16) & 255, (n >> 8) & 255, n & 255]; }
-  function toHex(r) { return "#" + r.map(function (v) { return ("0" + Math.max(0, Math.min(255, Math.round(v))).toString(16)).slice(-2); }).join(""); }
-  function lin(c) { c /= 255; return c <= 0.04045 ? c / 12.92 : Math.pow((c + 0.055) / 1.055, 2.4); }
-  function delin(c) { var v = c <= 0.0031308 ? 12.92 * c : 1.055 * Math.pow(c, 1 / 2.4) - 0.055; return Math.max(0, Math.min(1, v)) * 255; }
-  function labFromRgb(p) {
-    var r = lin(p[0]), g = lin(p[1]), b = lin(p[2]);
-    var l = Math.cbrt(0.4122214708 * r + 0.5363325363 * g + 0.0514459929 * b), m = Math.cbrt(0.2119034982 * r + 0.6806995451 * g + 0.1073969566 * b), s = Math.cbrt(0.0883024619 * r + 0.2817188376 * g + 0.6299787005 * b);
-    return [0.2104542553 * l + 0.793617785 * m - 0.0040720468 * s, 1.9779984951 * l - 2.428592205 * m + 0.4505937099 * s, 0.0259040371 * l + 0.7827717662 * m - 0.808675766 * s];
+  /* ---------- langue ---------- */
+  var LANG_KEY = "accords-wada-lang", lang = "fr";
+  function t(key, vars) {
+    var s = I18N[lang] && I18N[lang][key]; if (s == null) s = I18N.fr[key]; if (s == null) s = key;
+    return vars ? s.replace(/\{(\w+)\}/g, function (m, k) { return vars[k] != null ? vars[k] : m; }) : s;
   }
-  function lab(hex) { return labFromRgb(rgb(hex)); }
-  function linFromLab(L) {
-    var l = Math.pow(L[0] + 0.3963377774 * L[1] + 0.2158037573 * L[2], 3), m = Math.pow(L[0] - 0.1055613458 * L[1] - 0.0638541728 * L[2], 3), s = Math.pow(L[0] - 0.0894841775 * L[1] - 1.291485548 * L[2], 3);
-    return [4.0767416621 * l - 3.3077115913 * m + 0.2309699292 * s, -1.2684380046 * l + 2.6097574011 * m - 0.3413193965 * s, -0.0041960863 * l - 0.7034186147 * m + 1.707614701 * s];
-  }
-  function lch(hex) { var o = lab(hex); return [o[0], Math.hypot(o[1], o[2]), (Math.atan2(o[2], o[1]) * 180 / Math.PI + 360) % 360]; }
-  function fromLch(L, C, H) {
-    var hr = H * Math.PI / 180, ok = function (c) { var v = linFromLab([L, c * Math.cos(hr), c * Math.sin(hr)]); return v.every(function (x) { return x >= -0.0005 && x <= 1.0005; }); };
-    var best = C; if (!ok(C)) { var lo = 0, hi = C; best = 0; for (var i = 0; i < 22; i++) { var mid = (lo + hi) / 2; if (ok(mid)) { best = mid; lo = mid; } else hi = mid; } }
-    return toHex(linFromLab([L, best * Math.cos(hr), best * Math.sin(hr)]).map(delin));
-  }
-  function dist(a, b) { return Math.hypot(a[0] - b[0], a[1] - b[1], a[2] - b[2]); }
-  function lum(hex) { var c = rgb(hex).map(lin); return 0.2126 * c[0] + 0.7152 * c[1] + 0.0722 * c[2]; }
-  function contrast(a, b) { var x = lum(a), y = lum(b); return (Math.max(x, y) + 0.05) / (Math.min(x, y) + 0.05); }
-  function readableOn(bg) { var w = contrast("#ffffff", bg), k = contrast("#141413", bg); return w >= k ? { c: "#ffffff", r: w } : { c: "#141413", r: k }; }
-  function towards(hex, bg, target) { var l = lch(hex), out = hex, dark = lum(bg) < 0.2, L = l[0]; for (var i = 0; i < 70 && contrast(out, bg) < target; i++) { L += dark ? 0.012 : -0.012; out = fromLch(Math.max(0, Math.min(1, L)), l[1], l[2]); } return out; }
-  /* Valeurs pour les pros. CMJN : conversion naïve, sans profil ICC. LRV : luminance relative Y (D65) × 100,
-     estimée depuis le sRGB de l'écran. Les deux sont des estimations, à présenter comme telles. */
-  function hslOf(hex) {
-    var p = rgb(hex).map(function (v) { return v / 255; }), mx = Math.max.apply(null, p), mn = Math.min.apply(null, p), l = (mx + mn) / 2, d = mx - mn, h = 0, s = 0;
-    if (d) { s = d / (1 - Math.abs(2 * l - 1)); h = 60 * (mx === p[0] ? ((p[1] - p[2]) / d + 6) % 6 : mx === p[1] ? (p[2] - p[0]) / d + 2 : (p[0] - p[1]) / d + 4); }
-    return [Math.round(h) % 360, Math.round(s * 100), Math.round(l * 100)];
-  }
-  function cmykOf(hex) {
-    var p = rgb(hex).map(function (v) { return v / 255; }), k = 1 - Math.max.apply(null, p);
-    if (k >= 1) return [0, 0, 0, 100];
-    return p.map(function (v) { return Math.round((1 - v - k) / (1 - k) * 100); }).concat(Math.round(k * 100));
-  }
-  function lrvOf(hex) { return Math.round(lum(hex) * 1000) / 10; }
-  function values(hex) {
-    var l = lch(hex), h = hslOf(hex);
-    return { hex: hex.toUpperCase(), rgb: rgb(hex).join(" "), hsl: h[0] + "° " + h[1] + "% " + h[2] + "%",
-      oklch: (l[0] * 100).toFixed(1) + "% " + l[1].toFixed(3) + " " + (l[1] < 0.002 ? 0 : Math.round(l[2])) + "°", cmjn: cmykOf(hex).join(" "), lrv: lrvOf(hex).toFixed(1) };
-  }
-  /* Simulations d'affichage : elles changent l'aperçu, jamais les valeurs de l'accord.
-     Éclairage : adaptation de Bradford, en gardant KEEP de la teinte de la lampe (l'œil n'en compense qu'une partie).
-     Daltonisme : matrices de Machado, Oliveira et Fernandes (2009), sévérité 1, appliquées en RGB linéaire. */
-  var SRGB_XYZ = [[0.4124564, 0.3575761, 0.1804375], [0.2126729, 0.7151522, 0.072175], [0.0193339, 0.119192, 0.9503041]];
-  var XYZ_SRGB = [[3.2404542, -1.5371385, -0.4985314], [-0.969266, 1.8760108, 0.041556], [0.0556434, -0.2040259, 1.0572252]];
-  var BRAD = [[0.8951, 0.2664, -0.1614], [-0.7502, 1.7135, 0.0367], [0.0389, -0.0685, 1.0296]];
-  var BRAD_INV = [[0.9869929, -0.1470543, 0.1599627], [0.4323053, 0.5183603, 0.0492912], [-0.0085287, 0.0400428, 0.9684867]];
-  function mul(M, v) { return M.map(function (r) { return r[0] * v[0] + r[1] * v[1] + r[2] * v[2]; }); }
-  function whiteXYZ(x, y) { return [x / y, 1, (1 - x - y) / y]; }
-  var LIGHTS = { 4000: whiteXYZ(0.3805, 0.3768), 2700: whiteXYZ(0.4599, 0.4106) }, D65_LMS = mul(BRAD, whiteXYZ(0.3127, 0.329)), KEEP = 0.5;
-  var CVD = {
-    protan: [[0.152286, 1.052583, -0.204868], [0.114503, 0.786281, 0.099216], [-0.003882, -0.048116, 1.051998]],
-    deutan: [[0.367322, 0.860646, -0.227968], [0.280085, 0.672501, 0.047413], [-0.01182, 0.04294, 0.968881]],
-    tritan: [[1.255528, -0.076749, -0.178779], [-0.078411, 0.930809, 0.147602], [0.004733, 0.691367, 0.3039]]
-  };
-  var CVD_NAMES = { protan: "protanopie", deutan: "deutéranopie", tritan: "tritanopie" };
-  function simulate(hex, light, vision) {
-    var v = rgb(hex).map(lin);
-    if (LIGHTS[light]) {
-      var W = mul(BRAD, LIGHTS[light]);
-      v = mul(XYZ_SRGB, mul(BRAD_INV, mul(BRAD, mul(SRGB_XYZ, v)).map(function (c, i) { return c * (1 + (W[i] / D65_LMS[i] - 1) * KEEP); })));
-    }
-    if (CVD[vision]) v = mul(CVD[vision], v);
-    return toHex(v.map(delin));
-  }
-  // Paires de couleurs que chaque type de daltonisme rend difficiles à distinguer (écart OKLab simulé < 0.04).
-  function confusions(cs) {
-    var out = [];
-    Object.keys(CVD).forEach(function (k) {
-      var s = cs.map(function (c) { return lab(simulate(c, 6500, k)); });
-      for (var i = 0; i < cs.length; i++) for (var j = i + 1; j < cs.length; j++) if (dist(s[i], s[j]) < 0.04) out.push({ k: k, a: cs[i], b: cs[j] });
-    });
-    return out;
-  }
-
-  /* Exports logiciels : fonctions pures, items = [{ hex, role, slug, pct, name }]. */
-  function aseBytes(title, items) {
-    var chunks = [];
-    function utf16(s) { var b = new Uint8Array((s.length + 1) * 2); for (var i = 0; i < s.length; i++) { b[i * 2] = s.charCodeAt(i) >> 8; b[i * 2 + 1] = s.charCodeAt(i) & 255; } return b; }
-    function named(name, extra) { var s = utf16(name), b = new Uint8Array(2 + s.length + extra.length); new DataView(b.buffer).setUint16(0, name.length + 1); b.set(s, 2); b.set(extra, 2 + s.length); return b; }
-    function block(type, body) { var h = new DataView(new ArrayBuffer(6)); h.setUint16(0, type); h.setUint32(2, body.length); chunks.push(new Uint8Array(h.buffer), body); }
-    block(0xC001, named(title, new Uint8Array(0)));
-    items.forEach(function (it) {
-      var e = new DataView(new ArrayBuffer(18));
-      "RGB ".split("").forEach(function (ch, i) { e.setUint8(i, ch.charCodeAt(0)); });
-      rgb(it.hex).forEach(function (v, i) { e.setFloat32(4 + i * 4, v / 255); });
-      e.setUint16(16, 2); // couleur « normale » (ni globale ni ton direct)
-      block(0x0001, named(it.role + " " + it.hex.toUpperCase(), new Uint8Array(e.buffer)));
-    });
-    block(0xC002, new Uint8Array(0));
-    var head = new DataView(new ArrayBuffer(12));
-    "ASEF".split("").forEach(function (ch, i) { head.setUint8(i, ch.charCodeAt(0)); });
-    head.setUint16(4, 1); head.setUint16(6, 0); head.setUint32(8, items.length + 2);
-    chunks.unshift(new Uint8Array(head.buffer));
-    var size = chunks.reduce(function (s, c) { return s + c.length; }, 0), out = new Uint8Array(size), at = 0;
-    chunks.forEach(function (c) { out.set(c, at); at += c.length; });
-    return out;
-  }
-  function tokensText(n, items) {
-    var g = { $description: "Sanzo Wada n° " + n + " — proportions " + items.map(function (it) { return it.pct; }).join("/") + " (convention MML). Hex : cibles HexPot, à vérifier sur le support réel." };
-    items.forEach(function (it) { g[it.slug] = { $type: "color", $value: it.hex, $description: it.role + " · " + it.pct + " % · " + it.name }; });
-    var root = {}; root["wada-" + n] = g;
-    return JSON.stringify(root, null, 2) + "\n";
-  }
-  function tailwindText(n, items) {
-    return "/* Sanzo Wada n° " + n + " — " + items.map(function (it) { return it.pct; }).join("/") + " */\n" +
-      "/* Tailwind CSS v4 : colle ce bloc dans ton CSS principal, puis utilise bg-wada-" + items[0].slug + ", text-wada-…, etc. */\n" +
-      "@theme {\n" + items.map(function (it) { return "  --color-wada-" + it.slug + ": " + it.hex + ";"; }).join("\n") + "\n}\n\n" +
-      "/* Tailwind CSS v3 : dans tailwind.config.js, theme.extend.colors =\n   { wada: { " + items.map(function (it) { return it.slug + ": '" + it.hex + "'"; }).join(", ") + " } } */\n";
-  }
-  function gplText(n, items) {
-    var pad = function (v) { return ("  " + v).slice(-3); };
-    return "GIMP Palette\nName: Sanzo Wada n° " + n + "\nColumns: " + items.length + "\n#\n" +
-      items.map(function (it) { var p = rgb(it.hex); return pad(p[0]) + " " + pad(p[1]) + " " + pad(p[2]) + "\t" + it.role + " (" + it.pct + " %) " + it.hex.toUpperCase(); }).join("\n") + "\n";
-  }
-  function nameOf(hex) {
-    var l = lch(hex), L = l[0], C = l[1], H = l[2];
-    if (C < 0.03) return L > 0.92 ? "blanc" : L < 0.25 ? "noir" : L > 0.7 ? "gris clair" : L < 0.45 ? "gris foncé" : "gris";
-    var hues = [[20, "rose"], [35, "rouge"], [60, "orange"], [85, "ocre"], [105, "jaune"], [130, "vert-jaune"], [165, "vert"], [195, "vert d'eau"], [230, "bleu-vert"], [265, "bleu"], [290, "bleu violet"], [320, "violet"], [350, "magenta"], [361, "rose"]];
-    var n = hues.find(function (h) { return H < h[0]; })[1];
-    if (n === "orange" && L < 0.55) n = "brun"; if (n === "ocre" && L < 0.5) n = "brun olive"; if (n === "jaune" && L < 0.6) n = "olive"; if (n === "rouge" && L < 0.4) n = "bordeaux";
-    return n + (L > 0.82 ? " pâle" : L < 0.38 && n.indexOf("brun") < 0 && n !== "bordeaux" ? " profond" : C < 0.08 ? " grisé" : "");
-  }
-
-  /* ---------- recherche Wada ---------- */
-  var LAB = WADA.map(function (c) { return c.map(lab); });
-  /* Avec seed2 : chaque couleur prend une case différente de l'accord ; l'écart retenu est le pire des deux
-     (une seule couleur loin suffit à rendre l'accord « proche » ou « libre »), départagé par la somme. */
-  function search(seed, size, seed2) {
-    var s = lab(seed), s2 = seed2 ? lab(seed2) : null, res = [];
-    WADA.forEach(function (combo, i) {
-      if (size && combo.length !== size) return;
-      var L = LAB[i];
-      if (!s2) {
-        var best = Infinity, idx = 0;
-        L.forEach(function (c, j) { var d = dist(s, c); if (d < best) { best = d; idx = j; } });
-        res.push({ n: i + 1, colors: combo, idx: idx, d: best, sum: best });
-        return;
-      }
-      var top = null;
-      for (var a = 0; a < L.length; a++) for (var b = 0; b < L.length; b++) {
-        if (a === b) continue;
-        var d1 = dist(s, L[a]), d2 = dist(s2, L[b]), m = Math.max(d1, d2), sum = d1 + d2;
-        if (!top || m < top.d || (m === top.d && sum < top.sum)) top = { n: i + 1, colors: combo, idx: a, idx2: b, d: m, sum: sum, d1: d1, d2: d2 };
-      }
-      res.push(top);
-    });
-    var pref = { 3: 0, 4: 1, 2: 2 };
-    res.sort(function (a, b) { return (a.d - b.d) || (a.sum - b.sum) || (pref[a.colors.length] - pref[b.colors.length]) || (a.n - b.n); });
-    return res;
-  }
-  function fid(d) { return d <= 0.06 ? "fidèle" : d <= 0.12 ? "proche" : "libre"; }
-  function build(r, seed, opts) {
-    var two = r.idx2 != null, match = r.colors[r.idx], match2 = two ? r.colors[r.idx2] : null, dH = lch(seed)[2] - lch(match)[2], useSeed = opts.substitute;
-    var others = r.colors.filter(function (_, j) { return j !== r.idx && j !== r.idx2; }).map(function (c) { if (!opts.transpose) return c; var l = lch(c); return l[1] < 0.03 ? c : fromLch(l[0], l[1], (l[2] + dH + 360) % 360); });
-    var head = [useSeed ? seed : match]; if (two) head.push(useSeed ? opts.seed2 : match2);
-    return { n: r.n, wada: r.colors, d: r.d, d1: r.d1, d2: r.d2, two: two, fid: fid(r.d), match: match, colors: head.concat(others) };
-  }
-  function parseHex(v) {
-    v = v.trim(); if (v[0] !== "#") v = "#" + v;
-    if (/^#[0-9a-f]{3}$/i.test(v)) v = "#" + v[1] + v[1] + v[2] + v[2] + v[3] + v[3];
-    return /^#[0-9a-f]{6}$/i.test(v) ? v.toLowerCase() : null;
-  }
-  var PROPS = { 2: [65, 35], 3: [60, 30, 10], 4: [50, 25, 15, 10] };
-  function rolesOf(n) { return n === 2 ? ["Dominante", "Contraste"] : n === 3 ? ["Dominante", "Secondaire", "Accent"] : ["Dominante", "Secondaire", "Complément", "Accent"]; }
-  function slugsOf(n) { return n === 2 ? ["dominante", "contraste"] : n === 3 ? ["dominante", "secondaire", "accent"] : ["dominante", "secondaire", "complement", "accent"]; }
-  var SCENES = ["interieur", "mode", "graphisme"];
-
-  /* ---------- lien partageable : l'état tient dans le hash ----------
-     #c=1448c8&c2=e8b04a&n=55&o=1.0.2&t=3&ex=0&tr=1&sc=mode */
-  function readHash(h) {
-    var q = {};
-    (h || "").replace(/^#/, "").split("&").forEach(function (kv) { var i = kv.indexOf("="); if (i > 0) { try { q[kv.slice(0, i)] = decodeURIComponent(kv.slice(i + 1)); } catch (e) {} } });
-    var c = q.c ? parseHex(q.c) : null; if (!c) return null;
-    return { seed: c, seed2: q.c2 ? parseHex(q.c2) : null, n: Math.max(0, Math.min(348, parseInt(q.n, 10) || 0)),
-      order: q.o ? q.o.split(".").map(Number) : null, size: [2, 3, 4].indexOf(+q.t) >= 0 ? +q.t : 0,
-      substitute: q.ex !== "0", transpose: q.tr === "1", scene: SCENES.indexOf(q.sc) >= 0 ? q.sc : "interieur" };
+  function nameOf(hex) { return C.nameOf(hex, lang); }
+  function rolesOf(n) { return C.rolesOf(n, lang); }
+  function slugsOf(n) { return C.slugsOf(n, lang); }
+  function num(n) { return t("num") + n; }
+  function initialLang(k) {
+    if (k && k.lang) return k.lang;
+    var only = /(?:^#|&)lg=(fr|en)\b/.exec(location.hash);  // « #lg=en » seul, depuis les fiches anglaises
+    if (only) return only[1];
+    try { var s = localStorage.getItem(LANG_KEY); if (s === "fr" || s === "en") return s; } catch (e) {}
+    return /^fr\b/i.test(navigator.language || "fr") ? "fr" : "en";
   }
 
   /* ---------- état ---------- */
   var state = { seed: "#1448c8", seed2: null, multi: false, target: 2, size: 0, substitute: true, transpose: false, sel: 0, order: null, scene: "interieur", dictSize: 0, list: [], wantN: 0, wantOrder: null, light: 6500, vision: "normale" };
   try {
     var saved = JSON.parse(localStorage.getItem("accords-wada") || "null");
-    if (saved && /^#[0-9a-f]{6}$/i.test(saved.seed)) { state.seed = saved.seed.toLowerCase(); state.size = saved.size || 0; state.scene = saved.scene || "interieur"; }
+    if (saved && /^#[0-9a-f]{6}$/i.test(saved.seed)) { state.seed = saved.seed.toLowerCase(); state.size = saved.size || 0; state.scene = C.SCENES.indexOf(saved.scene) >= 0 ? saved.scene : "interieur"; }
     if (saved && /^#[0-9a-f]{6}$/i.test(saved.seed2)) { state.seed2 = saved.seed2.toLowerCase(); state.multi = !!saved.multi; }
   } catch (e) {}
   function save() { try { localStorage.setItem("accords-wada", JSON.stringify({ seed: state.seed, seed2: state.seed2, multi: state.multi, size: state.size, scene: state.scene })); } catch (e) {} }
@@ -198,35 +39,52 @@
     state.seed = k.seed; state.multi = !!k.seed2; if (k.seed2) state.seed2 = k.seed2;
     state.size = k.size; state.substitute = k.substitute; state.transpose = k.transpose; state.scene = k.scene;
     state.wantN = k.n; state.wantOrder = k.order;
+    if (k.lang) lang = k.lang;
   }
-  var link = readHash(location.hash); if (link) takeLink(link);
-  // Sérialise un état lu par readHash (ou l'état courant) : sert aussi à normaliser les liens importés.
-  function hashOf(k) {
-    var p = ["c=" + k.seed.slice(1)];
-    if (k.seed2) p.push("c2=" + k.seed2.slice(1));
-    if (k.n) p.push("n=" + k.n);
-    if (k.n && k.order) p.push("o=" + k.order.join("."));
-    if (k.size) p.push("t=" + k.size);
-    if (!k.substitute) p.push("ex=0");
-    if (k.transpose) p.push("tr=1");
-    if (k.scene && k.scene !== "interieur") p.push("sc=" + k.scene);
-    return "#" + p.join("&");
-  }
+  var link = readHash(location.hash);
+  lang = initialLang(link);
+  if (link) takeLink(link);
   function shareHash() {
     var cur = current();
-    return hashOf({ seed: state.seed, seed2: state.multi ? state.seed2 : null, n: cur ? cur.a.n : 0, order: state.order, size: state.size, substitute: state.substitute, transpose: state.transpose, scene: state.scene });
+    return hashOf({ seed: state.seed, seed2: state.multi ? state.seed2 : null, n: cur ? cur.a.n : 0, order: state.order, size: state.size, substitute: state.substitute, transpose: state.transpose, scene: state.scene, lang: lang });
   }
   function shareUrl() { return location.href.split("#")[0] + shareHash(); }
   function updateLink() { try { history.replaceState(null, "", shareHash()); } catch (e) {} }
 
   var $ = function (id) { return document.getElementById(id); };
   function el(tag, attrs, kids) { var e = document.createElement(tag); if (attrs) for (var k in attrs) { if (k === "style") e.style.cssText = attrs[k]; else if (k === "text") e.textContent = attrs[k]; else e.setAttribute(k, attrs[k]); } (kids || []).forEach(function (c) { e.appendChild(c); }); return e; }
+  function toast(msg) { $("toast").textContent = msg; }
+  function smooth() { return matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth"; }
+
+  /* Textes fixes de la page : le français est lu dans index.html, l'anglais vient de i18n.js.
+     Les chaînes « html » sont des constantes de i18n.js (jamais des données saisies). */
+  var originals = new Map();
+  function orig(e, slot, read) { var o = originals.get(e); if (!o) { o = {}; originals.set(e, o); } if (!(slot in o)) o[slot] = read(); return o[slot]; }
+  function applyStatic() {
+    document.documentElement.lang = lang;
+    document.title = t("meta.title");
+    document.querySelector('meta[name="description"]').setAttribute("content", t("meta.desc"));
+    document.querySelectorAll("[data-i18n]").forEach(function (e) {
+      var fr = orig(e, "text", function () { return e.textContent; });
+      e.textContent = lang === "fr" ? fr : t(e.getAttribute("data-i18n"));
+    });
+    document.querySelectorAll("[data-i18n-html]").forEach(function (e) {
+      var fr = orig(e, "html", function () { return e.innerHTML; });
+      e.innerHTML = lang === "fr" ? fr : t(e.getAttribute("data-i18n-html"));
+    });
+    document.querySelectorAll("[data-i18n-attr]").forEach(function (e) {
+      e.getAttribute("data-i18n-attr").split(";").forEach(function (pair) {
+        var p = pair.split("="), attr = p[0], fr = orig(e, "@" + attr, function () { return e.getAttribute(attr) || ""; });
+        e.setAttribute(attr, lang === "fr" ? fr : t(p[1]));
+      });
+    });
+  }
 
   function setSeed(hex, keepImageChip) {
     hex = hex.toLowerCase(); state.seed = hex; state.sel = 0; state.order = null;
     $("picker").value = hex; $("hex").value = hex.toUpperCase(); $("hex").setAttribute("aria-invalid", "false");
     if (!keepImageChip) document.querySelectorAll(".chip.on").forEach(function (c) { c.classList.remove("on"); });
-    var root = document.documentElement.style, l = lch(hex);
+    var root = document.documentElement.style;
     root.setProperty("--accent-l", towards(hex, "#f1f1ef", 3));
     root.setProperty("--accent-d", towards(hex, "#161615", 3));
     $("seedname").textContent = nameOf(hex);
@@ -251,28 +109,26 @@
   function refresh() {
     var two = state.multi && state.seed2;
     var all = search(state.seed, state.size, two ? state.seed2 : null);
-    state.list = all.slice(0, 12).map(function (r) { return build(r, state.seed, state); });
+    state.list = all.slice(0, 12).map(function (r) { return C.build(r, state.seed, state); });
     if (state.wantN) {
-      // Accord demandé par un lien ou par le dictionnaire : on l'ajoute s'il n'est pas dans les 12 premiers.
+      // Accord demandé par un lien, un projet ou le dictionnaire : on l'ajoute s'il n'est pas dans les 12 premiers.
       var j = state.list.findIndex(function (a) { return a.n === state.wantN; });
-      if (j < 0) { var r = all.find(function (x) { return x.n === state.wantN; }); if (r) { state.list.push(build(r, state.seed, state)); j = state.list.length - 1; } }
+      if (j < 0) { var r = all.find(function (x) { return x.n === state.wantN; }); if (r) { state.list.push(C.build(r, state.seed, state)); j = state.list.length - 1; } }
       if (j >= 0) {
         state.sel = j; var o = state.wantOrder, len = state.list[j].colors.length;
         state.order = o && o.length === len && o.slice().sort().join() === Object.keys(o).join() ? o : null;
       }
       state.wantN = 0; state.wantOrder = null;
     }
-    var exact = all.filter(function (r) { return r.d <= 0.06; }).length, s = exact > 1 ? "s" : "";
-    $("resultHint").textContent = two
-      ? (exact ? exact + " combinaison" + s + " fidèle" + s + " contien" + (exact > 1 ? "nent" : "t") + " tes deux couleurs" : "Aucune combinaison ne contient fidèlement les deux : les plus proches sont proposées")
-      : (exact ? exact + " combinaison" + s + " fidèle" + s + " dans le dictionnaire" : "Aucune combinaison fidèle : les plus proches sont proposées");
+    var exact = all.filter(function (r) { return r.d <= 0.06; }).length, pre = two ? "res.two." : "res.";
+    $("resultHint").textContent = t(pre + (exact === 0 ? "none" : exact === 1 ? "one" : "many"), { n: exact });
     var ul = $("cards"); ul.textContent = "";
     state.list.forEach(function (a, i) {
-      var parts = PROPS[a.colors.length];
+      var parts = PROPS[a.colors.length], f = t("fid." + a.fid);
       var sw = el("span", { class: "sw" }, a.colors.map(function (c, j) { return el("i", { style: "background:" + c + ";flex:" + parts[j] }); }));
-      var b = el("button", { type: "button", class: "card", "aria-pressed": String(i === state.sel), "aria-label": "Combinaison n° " + a.n + ", " + a.fid }, [
+      var b = el("button", { type: "button", class: "card", "aria-pressed": String(i === state.sel), "aria-label": t("card.aria", { n: a.n, fid: f }) }, [
         sw,
-        el("span", { class: "meta" }, [el("span", { class: "num", text: "n° " + a.n }), el("span", { class: "tag " + a.fid.replace("è", "e"), text: a.fid })]),
+        el("span", { class: "meta" }, [el("span", { class: "num", text: num(a.n) }), el("span", { class: "tag " + a.fid, text: f })]),
         el("span", { class: "hexes", text: a.colors.join("  ").toUpperCase() })
       ]);
       b.addEventListener("click", function () { state.sel = i; state.order = null; refreshCards(); renderDetail(); });
@@ -288,24 +144,26 @@
     var order = state.order || a.colors.map(function (_, i) { return i; });
     return { a: a, colors: order.map(function (i) { return a.colors[i]; }), order: order };
   }
+  function textOn(r) { return t("text.on", { c: t(r.c === "#ffffff" ? "white" : "black"), r: r.r.toFixed(1) }) + (r.r < 4.5 ? t("titles.only") : ""); }
 
   function renderDetail() {
     var cur = current(); if (!cur) return;
     var a = cur.a, cs = cur.colors, parts = PROPS[cs.length];
-    $("detailLabel").textContent = "Sanzo Wada n° " + a.n + " · correspondance " + a.fid + (a.two ? " (écarts " + (a.d1 * 100).toFixed(1) + " et " + (a.d2 * 100).toFixed(1) + ")" : " (écart " + (a.d * 100).toFixed(1) + ")");
+    $("detailLabel").textContent = t("detail.label", { n: a.n, fid: t("fid." + a.fid) }) +
+      (a.two ? t("detail.gaps", { a: (a.d1 * 100).toFixed(1), b: (a.d2 * 100).toFixed(1) }) : t("detail.gap", { d: (a.d * 100).toFixed(1) }));
     $("detailTitle").textContent = cs.map(nameOf).join(" · ");
     var big = $("bigsw"); big.textContent = "";
-    cs.forEach(function (c, i) { var s = sim(c), t = readableOn(s); big.appendChild(el("div", { style: "background:" + s + ";color:" + t.c + ";flex:" + parts[i] }, [document.createTextNode(parts[i] + " %")])); });
+    cs.forEach(function (c, i) { var s = sim(c), r = readableOn(s); big.appendChild(el("div", { style: "background:" + s + ";color:" + r.c + ";flex:" + parts[i] }, [document.createTextNode(parts[i] + " %")])); });
     var roles = rolesOf(cs.length);
     var rows = $("rows"); rows.textContent = "";
     cs.forEach(function (c, i) {
-      var lc = c.toLowerCase(), t = readableOn(c), mine = state.substitute && (lc === state.seed || (a.two && lc === state.seed2));
-      var copy = el("button", { type: "button", class: "mini", text: "Copier" });
-      copy.addEventListener("click", function () { doCopy(c.toUpperCase(), c.toUpperCase() + " copié"); });
+      var lc = c.toLowerCase(), r = readableOn(c), mine = state.substitute && (lc === state.seed || (a.two && lc === state.seed2));
+      var copy = el("button", { type: "button", class: "mini", text: t("copy") });
+      copy.addEventListener("click", function () { doCopy(c.toUpperCase(), t("copied", { x: c.toUpperCase() })); });
       rows.appendChild(el("div", { class: "row" }, [
-        el("span", { class: "dot", style: "background:" + c + ";color:" + t.c, title: "Contraste du texte " + t.r.toFixed(1) + ":1", text: "Aa" }),
-        el("span", { class: "what" }, [el("b", { text: c.toUpperCase() }), document.createTextNode("  " + roles[i] + " · " + parts[i] + " %" + (mine ? " · ta couleur" : "")),
-          el("small", { text: nameOf(c) + " · texte " + (t.c === "#ffffff" ? "blanc" : "noir") + " " + t.r.toFixed(1) + ":1" + (t.r < 4.5 ? " (titres seulement)" : "") })]),
+        el("span", { class: "dot", style: "background:" + c + ";color:" + r.c, title: t("contrast.title", { r: r.r.toFixed(1) }), text: "Aa" }),
+        el("span", { class: "what" }, [el("b", { text: c.toUpperCase() }), document.createTextNode("  " + roles[i] + " · " + parts[i] + " %" + (mine ? t("yours") : "")),
+          el("small", { text: nameOf(c) + " · " + textOn(r) })]),
         copy
       ]));
     });
@@ -319,88 +177,85 @@
     renderScene();
     updateFav(); recordHistory();
   }
-  function sim(c) { return state.light === 6500 && state.vision === "normale" ? c : simulate(c, state.light, state.vision); }
+  function sim(c) { return state.light === 6500 && state.vision === "normale" ? c : C.simulate(c, state.light, state.vision); }
   function renderSimNotes(cs) {
     var bits = [];
-    if (state.light !== 6500) bits.push("Aperçu sous lumière " + (state.light === 2700 ? "chaude (2700 K)" : "neutre (4000 K)") + " : approximation, l'œil compense en partie la teinte de la lampe.");
-    if (state.vision !== "normale") bits.push("Aperçu en " + CVD_NAMES[state.vision] + ".");
-    if (bits.length) bits.push("Les valeurs, les copies et la planche restent celles de l'accord.");
+    if (state.light !== 6500) bits.push(t("sim.light", { l: t("light." + state.light) }));
+    if (state.vision !== "normale") bits.push(t("sim.vision", { v: t("cvd." + state.vision) }));
+    if (bits.length) bits.push(t("sim.keep"));
     $("simHint").textContent = bits.join(" ");
-    var conf = confusions(cs), byType = {};
-    conf.forEach(function (x) { (byType[x.k] = byType[x.k] || []).push(nameOf(x.a) + " " + x.a.toUpperCase() + " et " + nameOf(x.b) + " " + x.b.toUpperCase()); });
+    var conf = C.confusions(cs), byType = {};
+    conf.forEach(function (x) { (byType[x.k] = byType[x.k] || []).push(t("cvd.pair", { a: nameOf(x.a) + " " + x.a.toUpperCase(), b: nameOf(x.b) + " " + x.b.toUpperCase() })); });
     $("cvdHint").textContent = conf.length
-      ? "Attention : " + Object.keys(byType).map(function (k) { return "en " + CVD_NAMES[k] + ", " + byType[k].join(" ; ") + " se confondent"; }).join(". ") + ". Ne compte pas sur la seule couleur pour les distinguer."
-      : "Daltonisme : toutes les couleurs restent distinctes en protanopie, deutéranopie et tritanopie.";
+      ? t("cvd.warn", { list: Object.keys(byType).map(function (k) { return t("cvd.in", { v: t("cvd." + k), pairs: byType[k].join(" ; ") }); }).join(". ") })
+      : t("cvd.ok");
   }
 
   function exportText(kind) {
     var cur = current(), cs = cur.colors, parts = PROPS[cs.length], n = cur.a.n;
     if (kind === "hex") return cs.map(function (c) { return c.toUpperCase(); }).join(", ");
-    if (kind === "prompt") return cs.length + " couleurs " + cs.join(", ") + " (Sanzo Wada n° " + n + ", proportions " + parts.join("/") + ")";
+    if (kind === "prompt") return t("exp.prompt", { k: cs.length, list: cs.join(", "), n: n, p: parts.join("/") });
     if (kind === "link") return shareUrl();
     if (kind === "table") {
       var roles = rolesOf(cs.length);
-      return ["Rôle", "%", "HEX", "RGB", "HSL", "OKLCH", "CMJN (approx.)", "LRV (approx.)", "Nom"].join("\t") + "\n" +
+      return t("table.head") + "\n" +
         cs.map(function (c, i) { var v = values(c); return [roles[i], parts[i], v.hex, v.rgb, v.hsl, v.oklch, v.cmjn, v.lrv, nameOf(c)].join("\t"); }).join("\n") +
-        "\n\nSanzo Wada n° " + n + " · hex : cibles HexPot · CMJN sans profil ICC · LRV estimé depuis l'écran";
+        "\n\n" + t("table.note", { n: n });
     }
     var names = slugsOf(cs.length);
-    return "/* Sanzo Wada n° " + n + " — " + parts.join("/") + " */\n:root {\n" + cs.map(function (c, i) { return "  --wada-" + names[i] + ": " + c + ";"; }).join("\n") + "\n}";
+    return "/* Sanzo Wada " + num(n) + " — " + parts.join("/") + " */\n:root {\n" + cs.map(function (c, i) { return "  --wada-" + names[i] + ": " + c + ";"; }).join("\n") + "\n}";
   }
   function doCopy(text, msg) {
-    var t = $("toast");
     try {
-      navigator.clipboard.writeText(text).then(function () { t.textContent = msg; }, function () { fallback(text); });
-    } catch (e) { fallback(text); }
-    function fallback() { var o = $("out"); o.textContent = text; var r = document.createRange(); r.selectNodeContents(o); var s = getSelection(); s.removeAllRanges(); s.addRange(r); t.textContent = "Texte sélectionné ci-dessous : copie-le avec Ctrl+C."; }
+      navigator.clipboard.writeText(text).then(function () { toast(msg); }, fallback);
+    } catch (e) { fallback(); }
+    function fallback() { var o = $("out"); o.textContent = text; var r = document.createRange(); r.selectNodeContents(o); var s = getSelection(); s.removeAllRanges(); s.addRange(r); toast(t("copy.fallback")); }
   }
   document.querySelectorAll("[data-copy]").forEach(function (b) {
-    b.addEventListener("click", function () { var k = b.getAttribute("data-copy"), txt = exportText(k); $("out").textContent = txt; doCopy(txt, { hex: "Valeurs hex copiées", css: "Variables CSS copiées", prompt: "Ligne de prompt copiée", table: "Tableau copié : colle-le dans un tableur.",
-      link: location.protocol === "file:" ? "Lien copié. Il ne marchera chez ton client qu'une fois le site en ligne." : "Lien copié : ton client verra exactement cet accord." }[k]); });
+    b.addEventListener("click", function () {
+      var k = b.getAttribute("data-copy"), txt = exportText(k); $("out").textContent = txt;
+      doCopy(txt, k === "link" ? t(location.protocol === "file:" ? "toast.link.file" : "toast.link") : t("toast." + k));
+    });
   });
-  $("rotate").addEventListener("click", function () { var cur = current(); if (!cur) return; var o = cur.order.slice(); o.push(o.shift()); state.order = o; $("toast").textContent = "Dominante : " + nameOf(cur.a.colors[o[0]]); renderDetail(); });
+  $("rotate").addEventListener("click", function () { var cur = current(); if (!cur) return; var o = cur.order.slice(); o.push(o.shift()); state.order = o; toast(t("dominant", { x: nameOf(cur.a.colors[o[0]]) })); renderDetail(); });
 
   /* ---------- mises en situation ---------- */
-  function shade(hex, dL) { var l = lch(hex); return fromLch(Math.max(0, Math.min(1, l[0] + dL)), l[1], l[2]); }
   function sceneOf(scene, cs, n, labels) {
-    var A = cs[0], B = cs[1], C = cs[2] || cs[1], D = cs[3] || cs[2] || cs[0], svg, hint;
+    var A = cs[0], B = cs[1], Cc = cs[2] || cs[1], D = cs[3] || cs[2] || cs[0], svg, aria = t("scene.aria." + scene);
     if (scene === "interieur") {
-      hint = "Mur dans la dominante, canapé en secondaire, coussins et objets en accent.";
-      svg = '<svg viewBox="0 0 480 340" role="img" aria-label="Salon mis en couleur">' +
+      svg = '<svg viewBox="0 0 480 340" role="img" aria-label="' + aria + '">' +
         '<rect width="480" height="250" fill="' + A + '"/>' +
         '<rect y="250" width="480" height="90" fill="' + shade(A, -0.22) + '"/>' +
-        '<rect x="300" y="44" width="120" height="150" fill="' + shade(A, 0.12) + '"/><rect x="310" y="54" width="100" height="130" fill="' + D + '"/><circle cx="360" cy="110" r="30" fill="' + C + '"/>' +
+        '<rect x="300" y="44" width="120" height="150" fill="' + shade(A, 0.12) + '"/><rect x="310" y="54" width="100" height="130" fill="' + D + '"/><circle cx="360" cy="110" r="30" fill="' + Cc + '"/>' +
         '<ellipse cx="200" cy="300" rx="190" ry="26" fill="' + D + '" opacity=".85"/>' +
         '<rect x="60" y="170" width="250" height="70" rx="10" fill="' + B + '"/><rect x="48" y="150" width="40" height="110" rx="10" fill="' + shade(B, -0.06) + '"/><rect x="282" y="150" width="40" height="110" rx="10" fill="' + shade(B, -0.06) + '"/>' +
         '<rect x="70" y="140" width="230" height="44" rx="10" fill="' + shade(B, 0.05) + '"/>' +
-        '<rect x="96" y="124" width="54" height="44" rx="8" fill="' + C + '" transform="rotate(-8 123 146)"/><rect x="214" y="126" width="54" height="44" rx="8" fill="' + D + '" transform="rotate(7 241 148)"/>' +
+        '<rect x="96" y="124" width="54" height="44" rx="8" fill="' + Cc + '" transform="rotate(-8 123 146)"/><rect x="214" y="126" width="54" height="44" rx="8" fill="' + D + '" transform="rotate(7 241 148)"/>' +
         '<rect x="70" y="240" width="10" height="26" fill="' + shade(B, -0.25) + '"/><rect x="290" y="240" width="10" height="26" fill="' + shade(B, -0.25) + '"/>' +
-        '<rect x="388" y="214" width="56" height="52" rx="4" fill="' + shade(A, -0.3) + '"/><path d="M406 214 q10 -60 0 -110 M416 214 q22 -50 30 -96 M412 214 q-20 -40 -34 -70" stroke="' + C + '" stroke-width="5" fill="none" stroke-linecap="round"/></svg>';
+        '<rect x="388" y="214" width="56" height="52" rx="4" fill="' + shade(A, -0.3) + '"/><path d="M406 214 q10 -60 0 -110 M416 214 q22 -50 30 -96 M412 214 q-20 -40 -34 -70" stroke="' + Cc + '" stroke-width="5" fill="none" stroke-linecap="round"/></svg>';
     } else if (scene === "mode") {
-      hint = "Manteau dans la dominante, haut en secondaire, pantalon et accessoires en accent.";
-      svg = '<svg viewBox="0 0 480 340" role="img" aria-label="Tenue mise en couleur">' +
+      svg = '<svg viewBox="0 0 480 340" role="img" aria-label="' + aria + '">' +
         '<rect width="480" height="340" fill="#e4e3de"/><rect y="300" width="480" height="40" fill="#d6d5cf"/>' +
         '<path d="M180 70 L300 70 L330 210 L150 210 Z" fill="' + B + '"/>' +
-        '<path d="M170 240 L310 240 L300 330 L250 330 L240 270 L230 330 L180 330 Z" fill="' + C + '"/>' +
+        '<path d="M170 240 L310 240 L300 330 L250 330 L240 270 L230 330 L180 330 Z" fill="' + Cc + '"/>' +
         '<path d="M150 60 L210 54 L240 120 L270 54 L330 60 L360 300 L290 300 L280 210 L200 210 L190 300 L120 300 Z" fill="' + A + '"/>' +
         '<path d="M210 54 L240 120 L270 54 L262 48 L240 92 L218 48 Z" fill="' + shade(A, -0.12) + '"/>' +
         '<path d="M222 40 Q240 30 258 40 L256 60 Q240 70 224 60 Z" fill="' + D + '"/><path d="M226 58 L222 130 L236 128 Z" fill="' + D + '"/>' +
         '<rect x="368" y="200" width="70" height="56" rx="6" fill="' + D + '"/><path d="M382 200 Q403 168 424 200" stroke="' + D + '" stroke-width="6" fill="none"/>' +
         '<rect x="170" y="210" width="140" height="10" fill="' + shade(A, -0.2) + '"/></svg>';
     } else {
-      hint = "Fond dans la dominante, formes en secondaire et accent, texte dans la couleur la plus lisible.";
-      var t = readableOn(A).c, best = cs.slice(1).map(function (c) { return [c, contrast(c, A)]; }).sort(function (x, y) { return y[1] - x[1]; })[0];
-      var title = best[1] >= 3 ? best[0] : t;
-      svg = '<svg viewBox="0 0 480 340" role="img" aria-label="Affiche mise en couleur">' +
+      var tc = readableOn(A).c, best = cs.slice(1).map(function (c) { return [c, contrast(c, A)]; }).sort(function (x, y) { return y[1] - x[1]; })[0];
+      var title = best[1] >= 3 ? best[0] : tc;
+      svg = '<svg viewBox="0 0 480 340" role="img" aria-label="' + aria + '">' +
         '<rect width="480" height="340" fill="' + A + '"/>' +
         '<circle cx="360" cy="120" r="92" fill="' + B + '"/>' +
-        '<rect x="300" y="160" width="150" height="150" fill="' + C + '" style="mix-blend-mode:normal"/>' +
+        '<rect x="300" y="160" width="150" height="150" fill="' + Cc + '"/>' +
         '<rect x="300" y="160" width="60" height="60" fill="' + D + '"/>' +
         '<text x="32" y="210" font-family="Shippori Mincho, Georgia, serif" font-weight="700" font-size="58" fill="' + title + '">配色</text>' +
-        '<text x="32" y="252" font-family="Zen Kaku Gothic New, sans-serif" font-weight="700" font-size="22" fill="' + title + '">Accord n° ' + n + '</text>' +
-        '<text x="32" y="300" font-family="IBM Plex Mono, monospace" font-size="12" fill="' + t + '">' + (labels || cs).join("  ").toUpperCase() + '</text></svg>';
+        '<text x="32" y="252" font-family="Zen Kaku Gothic New, sans-serif" font-weight="700" font-size="22" fill="' + title + '">' + t("scene.poster", { n: n }) + '</text>' +
+        '<text x="32" y="300" font-family="IBM Plex Mono, monospace" font-size="12" fill="' + tc + '">' + (labels || cs).join("  ").toUpperCase() + '</text></svg>';
     }
-    return { svg: svg, hint: hint };
+    return { svg: svg, hint: t("scene." + scene) };
   }
   function renderScene() {
     var cur = current(), s = sceneOf(state.scene, cur.colors.map(sim), cur.a.n, cur.colors);
@@ -420,7 +275,7 @@
   }
   function wrapText(ctx, text, x, y, maxW, lh) {
     var words = text.split(" "), line = "";
-    words.forEach(function (w) { var t = line ? line + " " + w : w; if (ctx.measureText(t).width > maxW && line) { ctx.fillText(line, x, y); y += lh; line = w; } else line = t; });
+    words.forEach(function (w) { var s = line ? line + " " + w : w; if (ctx.measureText(s).width > maxW && line) { ctx.fillText(line, x, y); y += lh; line = w; } else line = s; });
     if (line) { ctx.fillText(line, x, y); y += lh; }
     return y;
   }
@@ -436,7 +291,7 @@
       var M = S.m, LW = 900, RX = M + LW + 56, RW = S.w - M - RX;
 
       x.fillStyle = S.muted; x.font = "700 14px " + FONT.body; if ("letterSpacing" in x) x.letterSpacing = "2px";
-      x.fillText(("Accords Wada · d'après Sanzo Wada, 1933 · n° " + a.n + " · correspondance " + a.fid + (state.transpose ? " · teintes transposées (interprétation, plus du Wada strict)" : "")).toUpperCase(), M, M);
+      x.fillText((t("sheet.head", { n: a.n, fid: t("fid." + a.fid) }) + (state.transpose ? t("sheet.transposed") : "")).toUpperCase(), M, M);
       if ("letterSpacing" in x) x.letterSpacing = "0px";
       var title = cs.map(nameOf).join(" · "), size = 54;
       do { x.font = "700 " + size + "px " + FONT.display; size -= 2; } while (x.measureText(title).width > S.w - 2 * M && size > 26);
@@ -445,9 +300,9 @@
       // Bande de proportions
       var top = 220, bandH = 380, bx = M;
       cs.forEach(function (c, i) {
-        var w = LW * parts[i] / 100, t = readableOn(c);
+        var w = LW * parts[i] / 100, r = readableOn(c);
         x.fillStyle = c; x.fillRect(bx, top, w, bandH);
-        x.fillStyle = t.c; x.font = "500 16px " + FONT.mono; x.fillText(parts[i] + " %", bx + 14, top + bandH - 32);
+        x.fillStyle = r.c; x.font = "500 16px " + FONT.mono; x.fillText(parts[i] + " %", bx + 14, top + bandH - 32);
         bx += w;
       });
       x.strokeStyle = S.line; x.lineWidth = 1; x.strokeRect(M + 0.5, top + 0.5, LW - 1, bandH - 1);
@@ -460,7 +315,7 @@
         y += 74;
         x.fillStyle = S.ink; x.font = "700 18px " + FONT.body; x.fillText(fitText(x, roles[i] + " · " + parts[i] + " %", maxW), cx, y); y += 26;
         x.fillStyle = S.muted; x.font = "400 16px " + FONT.body; x.fillText(fitText(x, nameOf(c), maxW), cx, y); y += 34;
-        [["HEX", v.hex], ["RGB", v.rgb], ["HSL", v.hsl], ["OKLCH", v.oklch], ["CMJN ≈", v.cmjn], ["LRV ≈", v.lrv]].forEach(function (r) {
+        [["HEX", v.hex], ["RGB", v.rgb], ["HSL", v.hsl], ["OKLCH", v.oklch], [t("cmyk"), v.cmjn], ["LRV ≈", v.lrv]].forEach(function (r) {
           x.font = "400 13px " + FONT.mono; x.fillStyle = S.muted; x.fillText(r[0], cx, y);
           x.font = "400 17px " + FONT.mono; x.fillStyle = S.ink; x.fillText(fitText(x, r[1], maxW), cx, y + 17); y += 46;
         });
@@ -471,42 +326,41 @@
       if (img) x.drawImage(img, RX, top, RW, sh);
       x.strokeStyle = S.line; x.strokeRect(RX + 0.5, top + 0.5, RW - 1, sh - 1);
       x.fillStyle = S.muted; x.font = "400 15px " + FONT.body;
-      var hy = wrapText(x, sc.hint, RX, top + sh + 16, RW, 22);
-      var rd = readableOn(cs[0]);
-      wrapText(x, "Texte lisible sur la dominante : " + (rd.c === "#ffffff" ? "blanc" : "noir") + " " + rd.r.toFixed(1) + ":1" + (rd.r < 4.5 ? " (titres seulement)" : "") + ".", RX, hy + 8, RW, 22);
+      var hy = wrapText(x, sc.hint, RX, top + sh + 16, RW, 22), rd = readableOn(cs[0]);
+      wrapText(x, t("sheet.legible", { c: t(rd.c === "#ffffff" ? "white" : "black"), r: rd.r.toFixed(1), t: rd.r < 4.5 ? t("titles.only") : "" }), RX, hy + 8, RW, 22);
 
       // Pied de planche
       var fy = S.h - M - 58;
       x.fillStyle = S.line; x.fillRect(M, fy, S.w - 2 * M, 1);
       x.fillStyle = S.muted; x.font = "400 13px " + FONT.body;
-      x.fillText("Hex : cibles issues de la conversion HexPot, à vérifier sur le support réel. CMJN sans profil ICC et LRV estimé depuis l'écran : à confirmer sur nuancier. Proportions : convention MML.", M, fy + 14);
+      x.fillText(t("sheet.foot"), M, fy + 14);
       x.font = "400 12px " + FONT.mono;
-      var date = new Date().toLocaleDateString("fr-FR"), right = "Accords Wada — Manso Olivier · MAN MBAÏ LIKOL", rw = x.measureText(right).width;
-      x.fillText(fitText(x, "Planche du " + date + " · " + shareUrl(), S.w - 2 * M - rw - 40), M, fy + 38);
+      var date = new Date().toLocaleDateString(t("locale")), right = "Accords Wada — Manso Olivier · MAN MBAÏ LIKOL", rw = x.measureText(right).width;
+      x.fillText(fitText(x, t("sheet.date", { d: date }) + " · " + shareUrl(), S.w - 2 * M - rw - 40), M, fy + 38);
       x.fillText(right, S.w - M - rw, fy + 38);
       return cv;
     });
   }
   $("sheetPng").addEventListener("click", function () {
-    var t = $("toast"), n = current().a.n; t.textContent = "Préparation de la planche…";
+    var n = current().a.n; toast(t("sheet.preparing"));
     makeSheet().then(function (cv) {
       cv.toBlob(function (b) {
-        if (!b) { t.textContent = "Impossible de générer la planche dans ce navigateur."; return; }
-        var u = URL.createObjectURL(b), l = el("a", { href: u, download: "accord-wada-" + n + ".png" });
-        document.body.appendChild(l); l.click(); l.remove(); setTimeout(function () { URL.revokeObjectURL(u); }, 4000);
-        t.textContent = "Planche PNG téléchargée (A4 paysage, 300 dpi).";
+        if (!b) { toast(t("sheet.fail")); return; }
+        download("accord-wada-" + n + ".png", b, "image/png");
+        toast(t("sheet.png"));
       }, "image/png");
-    }).catch(function () { t.textContent = "Impossible de générer la planche dans ce navigateur."; });
+    }).catch(function () { toast(t("sheet.fail")); });
   });
   $("sheetPrint").addEventListener("click", function () {
-    var t = $("toast"); t.textContent = "Préparation de la planche…";
+    toast(t("sheet.preparing"));
     makeSheet().then(function (cv) {
       var img = $("printSheet");
-      img.onload = function () { document.documentElement.classList.add("has-sheet"); t.textContent = "Choisis « Enregistrer au format PDF » pour obtenir un PDF."; window.print(); };
+      img.onload = function () { document.documentElement.classList.add("has-sheet"); toast(t("sheet.pdf")); window.print(); };
       img.src = cv.toDataURL("image/png");
-    }).catch(function () { t.textContent = "Impossible de préparer l'impression dans ce navigateur."; });
+    }).catch(function () { toast(t("sheet.printfail")); });
   });
   window.addEventListener("afterprint", function () { document.documentElement.classList.remove("has-sheet"); });
+
   function seg(id, key, cb) {
     var g = $(id);
     g.querySelectorAll("button").forEach(function (b) {
@@ -524,6 +378,14 @@
   seg("visionSeg", "vision", renderDetail);
   seg("dictSeg", "dictSize", renderDict);
   seg("targetSeg", "target", function () {});
+  $("langSeg").querySelectorAll("button").forEach(function (b) {
+    b.addEventListener("click", function () {
+      if (b.dataset.v === lang) return;
+      lang = b.dataset.v; try { localStorage.setItem(LANG_KEY, lang); } catch (e) {}
+      var cur = current(); if (cur) { state.wantN = cur.a.n; state.wantOrder = state.order; }  // garder l'accord affiché
+      toast(""); applyLang();
+    });
+  });
 
   /* ---------- saisie couleur ---------- */
   $("picker").addEventListener("input", function (e) { setSeed(e.target.value); });
@@ -557,7 +419,7 @@
     return others.find(function (c) { return dist(lab(c.hex), L) > 0.1; }) || others[0] || null;
   }
   function loadFile(f) {
-    if (!f || !/^image\//.test(f.type)) { $("toast").textContent = "Ce fichier n'est pas une image. Essaie un JPG, PNG ou WebP."; return; }
+    if (!f || !/^image\//.test(f.type)) { toast(t("img.notimage")); return; }
     var url = URL.createObjectURL(f), img = new Image();
     img.onload = function () {
       var max = 640, s = Math.min(1, max / Math.max(img.width, img.height));
@@ -565,25 +427,24 @@
       ctx.drawImage(img, 0, 0, canvas.width, canvas.height); URL.revokeObjectURL(url);
       $("imgbox").hidden = false; extract();
     };
-    img.onerror = function () { $("toast").textContent = "Impossible de lire cette image."; };
+    img.onerror = function () { toast(t("img.unreadable")); };
     img.src = url;
   }
   function extract() {
     var w = canvas.width, h = canvas.height, step = Math.max(1, Math.floor(Math.sqrt(w * h / 6000))), data = ctx.getImageData(0, 0, w, h).data, pts = [];
     for (var y = 0; y < h; y += step) for (var x = 0; x < w; x += step) { var i = (y * w + x) * 4; if (data[i + 3] > 128) pts.push(labFromRgb([data[i], data[i + 1], data[i + 2]])); }
-    var k = 6, cent = [pts[Math.floor(pts.length / 2)]];
+    var k = 6, cent = [pts[Math.floor(pts.length / 2)]], counts = [];
     while (cent.length < k) { var far = 0, pick = pts[0]; for (var p = 0; p < pts.length; p += 3) { var dm = Math.min.apply(null, cent.map(function (c) { return dist(c, pts[p]); })); if (dm > far) { far = dm; pick = pts[p]; } } cent.push(pick); }
-    var assign = new Array(pts.length);
     for (var it = 0; it < 10; it++) {
       var sums = cent.map(function () { return [0, 0, 0, 0]; });
-      pts.forEach(function (pt, n) { var b = 0, bd = Infinity; cent.forEach(function (c, j) { var d = dist(c, pt); if (d < bd) { bd = d; b = j; } }); assign[n] = b; var s = sums[b]; s[0] += pt[0]; s[1] += pt[1]; s[2] += pt[2]; s[3]++; });
+      pts.forEach(function (pt) { var b = 0, bd = Infinity; cent.forEach(function (c, j) { var d = dist(c, pt); if (d < bd) { bd = d; b = j; } }); var s = sums[b]; s[0] += pt[0]; s[1] += pt[1]; s[2] += pt[2]; s[3]++; });
       cent = cent.map(function (c, j) { var s = sums[j]; return s[3] ? [s[0] / s[3], s[1] / s[3], s[2] / s[3]] : c; });
-      var counts = sums.map(function (s) { return s[3]; });
+      counts = sums.map(function (s) { return s[3]; });
     }
     var clusters = cent.map(function (c, j) { return { hex: toHex(linFromLab(c).map(delin)), n: counts[j], C: Math.hypot(c[1], c[2]) }; }).filter(function (c) { return c.n > 0; }).sort(function (a, b) { return b.n - a.n; });
     var chips = $("chips"); chips.textContent = "";
     clusters.forEach(function (c) {
-      var b = el("button", { type: "button", class: "chip", style: "background:" + c.hex, title: c.hex.toUpperCase() + " · " + Math.round(c.n / pts.length * 100) + " % de l'image", "aria-label": nameOf(c.hex) + " " + c.hex.toUpperCase() });
+      var b = el("button", { type: "button", class: "chip", style: "background:" + c.hex, title: t("img.chip", { hex: c.hex.toUpperCase(), p: Math.round(c.n / pts.length * 100) }), "aria-label": nameOf(c.hex) + " " + c.hex.toUpperCase() });
       b.addEventListener("click", function () { pickFromImage(c.hex, b); });
       chips.appendChild(b);
     });
@@ -592,9 +453,7 @@
     var second = state.multi ? secondCluster(lead) : null;
     if (second) { state.seed2 = second.hex; showSeed2(); save(); markChip(second, "on2"); }
     setSeed(lead.hex); markChip(lead, "on");
-    $("toast").textContent = second
-      ? "Couleurs de l'image : " + nameOf(lead.hex) + " et " + nameOf(second.hex) + ". Clique une pastille pour changer la couleur 1 ou 2."
-      : "Couleur principale de l'image : " + nameOf(lead.hex) + ". Clique une autre pastille pour changer.";
+    toast(second ? t("img.two", { a: nameOf(lead.hex), b: nameOf(second.hex) }) : t("img.one", { a: nameOf(lead.hex) }));
   }
   canvas.addEventListener("click", function (e) {
     var r = canvas.getBoundingClientRect(), x = Math.round((e.clientX - r.left) / r.width * canvas.width), y = Math.round((e.clientY - r.top) / r.height * canvas.height);
@@ -604,8 +463,8 @@
   });
   $("file").addEventListener("change", function (e) { loadFile(e.target.files[0]); e.target.value = ""; });
   var drop = $("drop");
-  ["dragenter", "dragover"].forEach(function (t) { drop.addEventListener(t, function (e) { e.preventDefault(); drop.classList.add("over"); }); });
-  ["dragleave", "drop"].forEach(function (t) { drop.addEventListener(t, function (e) { e.preventDefault(); drop.classList.remove("over"); }); });
+  ["dragenter", "dragover"].forEach(function (k) { drop.addEventListener(k, function (e) { e.preventDefault(); drop.classList.add("over"); }); });
+  ["dragleave", "drop"].forEach(function (k) { drop.addEventListener(k, function (e) { e.preventDefault(); drop.classList.remove("over"); }); });
   drop.addEventListener("drop", function (e) { loadFile(e.dataTransfer.files[0]); });
   document.addEventListener("paste", function (e) { var it = Array.prototype.find.call(e.clipboardData.items || [], function (i) { return i.type.indexOf("image") === 0; }); if (it) loadFile(it.getAsFile()); });
 
@@ -614,13 +473,13 @@
     var g = $("dictGrid"); g.textContent = "";
     WADA.forEach(function (c, i) {
       if (state.dictSize && c.length !== state.dictSize) return;
-      var b = el("button", { type: "button", "aria-label": "Combinaison n° " + (i + 1) + " : " + c.join(", ") + (state.multi ? ". Utiliser ses deux premières couleurs comme départ." : ". Utiliser sa première couleur comme départ.") }, [
-        el("span", { class: "sw" }, c.map(function (x) { return el("i", { style: "background:" + x }); })), el("span", { text: "n° " + (i + 1) })]);
+      var b = el("button", { type: "button", "aria-label": t(state.multi ? "dict.aria2" : "dict.aria", { n: i + 1, list: c.join(", ") }) }, [
+        el("span", { class: "sw" }, c.map(function (x) { return el("i", { style: "background:" + x }); })), el("span", { text: num(i + 1) })]);
       b.addEventListener("click", function () {
         if (state.multi) { state.seed2 = c[1]; showSeed2(); document.querySelectorAll(".chip.on2").forEach(function (x) { x.classList.remove("on2"); }); }
         state.wantN = i + 1;
         setSeed(c[0]);
-        $("detail").scrollIntoView({ behavior: matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth" });
+        $("detail").scrollIntoView({ behavior: smooth() });
       });
       g.appendChild(el("li", null, [b]));
     });
@@ -628,7 +487,7 @@
 
   /* ---------- exports logiciels ---------- */
   function download(name, data, type) {
-    var b = new Blob([data], { type: type || "text/plain;charset=utf-8" }), u = URL.createObjectURL(b), l = el("a", { href: u, download: name });
+    var b = data instanceof Blob ? data : new Blob([data], { type: type || "text/plain;charset=utf-8" }), u = URL.createObjectURL(b), l = el("a", { href: u, download: name });
     document.body.appendChild(l); l.click(); l.remove(); setTimeout(function () { URL.revokeObjectURL(u); }, 4000);
   }
   function exportItems() {
@@ -638,19 +497,19 @@
   document.querySelectorAll("[data-export]").forEach(function (b) {
     b.addEventListener("click", function () {
       var k = b.getAttribute("data-export"), n = current().a.n, items = exportItems(), base = "accord-wada-" + n;
-      if (k === "ase") download(base + ".ase", aseBytes("Sanzo Wada n° " + n, items), "application/octet-stream");
-      if (k === "tokens") download(base + ".tokens.json", tokensText(n, items), "application/json");
-      if (k === "tailwind") download(base + ".tailwind.css", tailwindText(n, items), "text/css");
-      if (k === "gpl") download(base + ".gpl", gplText(n, items));
-      $("toast").textContent = { ase: "Nuancier Adobe téléchargé : ouvre-le depuis le panneau Nuancier (Illustrator, Photoshop, InDesign).", tokens: "Tokens téléchargés au format W3C Design Tokens.", tailwind: "Thème Tailwind téléchargé (v4, avec l'équivalent v3 en commentaire).", gpl: "Palette GIMP / Inkscape téléchargée." }[k];
+      if (k === "ase") download(base + ".ase", C.aseBytes("Sanzo Wada " + num(n), items), "application/octet-stream");
+      if (k === "tokens") download(base + ".tokens.json", C.tokensText(n, items, lang), "application/json");
+      if (k === "tailwind") download(base + ".tailwind.css", C.tailwindText(n, items, lang), "text/css");
+      if (k === "gpl") download(base + ".gpl", C.gplText(n, items, lang));
+      toast(t("exp." + k));
     });
   });
 
   /* ---------- projets, favoris, historique ----------
-     Stockés dans localStorage ("accords-wada-projets") ; export/import JSON pour changer de poste ou archiver. */
+     localStorage "accords-wada-projets" ; export/import JSON pour changer de poste ou archiver. */
   var STORE_KEY = "accords-wada-projets", storeOk = true;
   function newId() { return Date.now().toString(36) + Math.random().toString(36).slice(2, 6); }
-  function freshStore() { var id = newId(); return { v: 1, current: id, projects: [{ id: id, name: "Mon premier projet", items: [] }], history: [] }; }
+  function freshStore() { var id = newId(); return { v: 1, current: id, projects: [{ id: id, name: t("proj.first"), items: [] }], history: [] }; }
   var store = (function () {
     try {
       var s = JSON.parse(localStorage.getItem(STORE_KEY) || "null");
@@ -660,9 +519,8 @@
   })();
   function persist() { try { localStorage.setItem(STORE_KEY, JSON.stringify(store)); storeOk = true; } catch (e) { storeOk = false; } }
   function project() { return store.projects.find(function (p) { return p.id === store.current; }) || store.projects[0]; }
-  // Deux liens désignent le même accord s'ils ne diffèrent que par la scène ou le filtre de taille.
-  function keyOf(hash) { var k = readHash(hash); return k ? [k.seed, k.seed2 || "", k.n, (k.order || []).join("."), k.transpose ? 1 : 0, k.substitute ? 1 : 0].join("|") : hash; }
-  function snapshot() { var cur = current(); return { hash: shareHash(), n: cur.a.n, colors: cur.colors.slice() }; }
+  // Les accords gardés ne mémorisent pas la langue : un projet s'ouvre dans la langue de l'interface.
+  function snapshot() { var cur = current(), h = C.readHash(shareHash()); h.lang = null; return { hash: hashOf(h), n: cur.a.n, colors: cur.colors.slice() }; }
   function inProject() { var key = keyOf(shareHash()); return project().items.findIndex(function (it) { return keyOf(it.hash) === key; }); }
   function updateFav() { $("fav").setAttribute("aria-pressed", String(inProject() >= 0)); }
   var histTimer = 0;
@@ -676,23 +534,25 @@
     }, 1500);
   }
   function openHash(h) {
+    var k = readHash(h); if (!k) return;
+    k.lang = lang; h = hashOf(k);
     if (location.hash !== h) location.hash = h;
-    $("detail").scrollIntoView({ behavior: matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth" });
+    $("detail").scrollIntoView({ behavior: smooth() });
   }
   function accordItem(it, opts) {
     var parts = PROPS[it.colors.length] || [];
-    var open = el("button", { type: "button", class: "saved-open", "aria-label": "Ouvrir l'accord n° " + it.n + " : " + it.colors.join(", ") }, [
+    var open = el("button", { type: "button", class: "saved-open", "aria-label": t("proj.open", { n: it.n, list: it.colors.join(", ") }) }, [
       el("span", { class: "sw" }, it.colors.map(function (c, j) { return el("i", { style: "background:" + c + ";flex:" + (parts[j] || 1) }); })),
-      el("span", { class: "num", text: "n° " + it.n })]);
+      el("span", { class: "num", text: num(it.n) })]);
     open.addEventListener("click", function () { openHash(it.hash); });
     var kids = [open];
     if (opts.note) {
-      var note = el("input", { class: "textin", type: "text", maxlength: "160", placeholder: "Note : pièce, client, matière…", "aria-label": "Note pour l'accord n° " + it.n });
+      var note = el("input", { class: "textin", type: "text", maxlength: "160", placeholder: t("proj.note"), "aria-label": t("proj.note.aria", { n: it.n }) });
       note.value = it.note || "";
       note.addEventListener("change", function () { it.note = note.value.trim(); persist(); });
       kids.push(note);
     }
-    if (opts.remove) { var rm = el("button", { type: "button", class: "mini", text: "Retirer", "aria-label": "Retirer l'accord n° " + it.n + " du projet" }); rm.addEventListener("click", opts.remove); kids.push(rm); }
+    if (opts.remove) { var rm = el("button", { type: "button", class: "mini", text: t("proj.remove"), "aria-label": t("proj.remove.aria", { n: it.n }) }); rm.addEventListener("click", opts.remove); kids.push(rm); }
     return el("li", { class: "saved-item" }, kids);
   }
   function renderProjects() {
@@ -701,8 +561,7 @@
     $("projName").value = p.name;
     var ul = $("saved"); ul.textContent = "";
     p.items.forEach(function (it, i) { ul.appendChild(accordItem(it, { note: true, remove: function () { p.items.splice(i, 1); persist(); renderProjects(); updateFav(); } })); });
-    $("savedHint").textContent = (p.items.length ? "" : "Aucun accord dans ce projet. Ouvre un accord puis clique « Garder dans le projet ». ") +
-      (storeOk ? "" : "La mémoire du navigateur est indisponible ici : exporte ton projet en JSON pour ne rien perdre.");
+    $("savedHint").textContent = (p.items.length ? "" : t("proj.empty")) + (storeOk ? "" : t("proj.nostore"));
   }
   function renderHistory() {
     var ul = $("history"); ul.textContent = "";
@@ -710,20 +569,11 @@
     $("historyCount").textContent = store.history.length;
   }
   function slug(s) { return s.toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "").replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "") || "projet"; }
-  // Import : on ne garde que des données vérifiées (liens relus et resérialisés, hex valides, textes bornés).
-  function cleanItems(arr) {
-    return (Array.isArray(arr) ? arr : []).map(function (it) {
-      var k = it && typeof it.hash === "string" ? readHash(it.hash) : null; if (!k || !k.n) return null;
-      var colors = Array.isArray(it.colors) ? it.colors.map(function (c) { return typeof c === "string" ? parseHex(c) : null; }) : [];
-      if (colors.length < 2 || colors.length > 4 || colors.indexOf(null) >= 0) return null;
-      return { hash: hashOf(k), n: k.n, colors: colors, note: typeof it.note === "string" ? it.note.slice(0, 160) : "", added: typeof it.added === "string" ? it.added.slice(0, 40) : "" };
-    }).filter(Boolean);
-  }
 
   $("fav").addEventListener("click", function () {
-    var p = project(), i = inProject(), t = $("toast");
-    if (i >= 0) { p.items.splice(i, 1); t.textContent = "Accord retiré de « " + p.name + " »."; }
-    else { var s = snapshot(); s.note = ""; s.added = new Date().toISOString(); p.items.unshift(s); t.textContent = "Accord gardé dans « " + p.name + " »."; }
+    var p = project(), i = inProject();
+    if (i >= 0) { p.items.splice(i, 1); toast(t("proj.out", { p: p.name })); }
+    else { var s = snapshot(); s.note = ""; s.added = new Date().toISOString(); p.items.unshift(s); toast(t("proj.in", { p: p.name })); }
     persist(); updateFav(); renderProjects();
   });
   $("projSel").addEventListener("change", function (e) { store.current = e.target.value; persist(); renderProjects(); updateFav(); });
@@ -732,49 +582,66 @@
     project().name = v.slice(0, 60); persist(); renderProjects();
   });
   $("projNew").addEventListener("click", function () {
-    var id = newId(); store.projects.push({ id: id, name: "Projet " + (store.projects.length + 1), items: [] }); store.current = id;
+    var id = newId(); store.projects.push({ id: id, name: t("proj.n", { n: store.projects.length + 1 }), items: [] }); store.current = id;
     persist(); renderProjects(); updateFav(); $("projName").focus(); $("projName").select();
   });
   $("projDelete").addEventListener("click", function () {
     var p = project();
-    if (!confirm("Supprimer le projet « " + p.name + " » et ses " + p.items.length + " accord(s) ? Exporte-le d'abord si tu veux le garder.")) return;
+    if (!confirm(t("proj.confirm", { p: p.name, k: p.items.length }))) return;
     store.projects = store.projects.filter(function (q) { return q !== p; });
     if (!store.projects.length) store.projects = freshStore().projects;
     store.current = store.projects[0].id; persist(); renderProjects(); updateFav();
-    $("toast").textContent = "Projet « " + p.name + " » supprimé.";
+    toast(t("proj.deleted", { p: p.name }));
   });
   $("projExport").addEventListener("click", function () {
     var p = project();
     download(slug(p.name) + ".accords-wada.json", JSON.stringify({ format: "accords-wada-projet", version: 1, name: p.name, exported: new Date().toISOString(), items: p.items }, null, 2) + "\n", "application/json");
-    $("toast").textContent = "Projet « " + p.name + " » exporté.";
+    toast(t("proj.exported", { p: p.name }));
   });
   $("projImport").addEventListener("change", function (e) {
-    var f = e.target.files[0], t = $("toast"); e.target.value = ""; if (!f) return;
+    var f = e.target.files[0]; e.target.value = ""; if (!f) return;
     f.text().then(function (txt) {
       var d = JSON.parse(txt); if (!d || d.format !== "accords-wada-projet") throw new Error("format");
-      var items = cleanItems(d.items); if (!items.length) throw new Error("vide");
-      var name = (typeof d.name === "string" && d.name.trim() ? d.name.trim().slice(0, 60) : "Projet importé");
+      var items = C.cleanItems(d.items); if (!items.length) throw new Error("vide");
+      var name = typeof d.name === "string" && d.name.trim() ? d.name.trim().slice(0, 60) : t("proj.importname");
       if (store.projects.some(function (q) { return q.name === name; })) name = (name + " (import)").slice(0, 60);
       var id = newId(); store.projects.push({ id: id, name: name, items: items }); store.current = id;
       persist(); renderProjects(); updateFav();
-      t.textContent = "Projet « " + name + " » importé : " + items.length + " accord" + (items.length > 1 ? "s" : "") + ".";
-    }).catch(function () { t.textContent = "Ce fichier n'est pas un projet Accords Wada valide."; });
+      toast(t(items.length > 1 ? "proj.imported.many" : "proj.imported.one", { p: name, k: items.length }));
+    }).catch(function () { toast(t("proj.bad")); });
   });
 
+  /* ---------- PWA : hors ligne et installation ---------- */
+  if ("serviceWorker" in navigator && /^https?:$/.test(location.protocol)) {
+    window.addEventListener("load", function () { navigator.serviceWorker.register("sw.js").catch(function () {}); });
+  }
+  var installPrompt = null;
+  window.addEventListener("beforeinstallprompt", function (e) { e.preventDefault(); installPrompt = e; $("install").hidden = false; });
+  $("install").addEventListener("click", function () {
+    if (!installPrompt) return;
+    installPrompt.prompt();
+    installPrompt.userChoice.then(function () { installPrompt = null; $("install").hidden = true; });
+  });
+  window.addEventListener("appinstalled", function () { $("install").hidden = true; toast(t("install.done")); });
+
+  /* ---------- démarrage ---------- */
+  function applyLang() {
+    applyStatic(); setPressed("langSeg", lang);
+    if (state.seed2) showSeed2();
+    renderDict(); renderProjects(); renderHistory();
+    setSeed(state.seed, true);
+  }
   function start() {
     $("substitute").checked = state.substitute; $("transpose").checked = state.transpose;
     setPressed("sizeSeg", state.size); setPressed("sceneSeg", state.scene);
-    if (state.seed2) showSeed2();
     applyMulti();
-    renderDict();
-    setSeed(state.seed);  // refresh() sélectionne l'accord demandé par le lien (state.wantN)
+    applyLang();  // setSeed → refresh() sélectionne l'accord demandé par le lien (state.wantN)
   }
-  // Lien collé dans un onglet déjà ouvert
+  // Lien collé dans un onglet déjà ouvert, ou accord rouvert depuis un projet
   window.addEventListener("hashchange", function () {
     if (location.hash === shareHash()) return;
     var k = readHash(location.hash); if (!k) return;
     takeLink(k); document.querySelectorAll(".chip.on, .chip.on2").forEach(function (c) { c.classList.remove("on", "on2"); }); start();
   });
-  renderProjects(); renderHistory();
   start();
 })();

@@ -4,6 +4,12 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Accords Wada</title>
+<meta name="description" content="Pars d'une couleur ou d'une photo et trouve les combinaisons du Dictionary of Color Combinations de Sanzo Wada qui la contiennent.">
+<meta name="theme-color" content="#f1f1ef" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#161615" media="(prefers-color-scheme: dark)">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icons/icon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="icons/icon-192.png">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Shippori+Mincho:wght@500;700&family=Zen+Kaku+Gothic+New:wght@400;500;700&family=IBM+Plex+Mono:wght@400;500&display=swap">
@@ -11,11 +17,18 @@
 </head>
 <body>
 <div class="wrap">
+  <div class="topbar">
+    <div class="seg" role="group" aria-label="Langue" data-i18n-attr="aria-label=h.lang" id="langSeg">
+      <button type="button" data-v="fr" lang="fr" aria-pressed="true">FR</button>
+      <button type="button" data-v="en" lang="en" aria-pressed="false">EN</button>
+    </div>
+    <button class="btn ghost" type="button" id="install" hidden data-i18n="h.install">Installer l'app</button>
+  </div>
   <header class="head">
     <div>
-      <p class="label">D'après Sanzo Wada · 配色総鑑 · 1933</p>
-      <h1>Accords Wada</h1>
-      <p class="lede">Choisis une couleur ou dépose la photo d'un tissu, d'une peinture, d'un matériau. L'outil cherche dans les 348 combinaisons du <i>Dictionary of Color Combinations</i> celles qui contiennent ta couleur, et te propose les déclinaisons.</p>
+      <p class="label" data-i18n="h.kicker">D'après Sanzo Wada · 配色総鑑 · 1933</p>
+      <h1 data-i18n="h.title">Accords Wada</h1>
+      <p class="lede" data-i18n-html="h.lede">Choisis une couleur ou dépose la photo d'un tissu, d'une peinture, d'un matériau. L'outil cherche dans les 348 combinaisons du <i>Dictionary of Color Combinations</i> celles qui contiennent ta couleur, et te propose les déclinaisons.</p>
       <div class="strip" id="headStrip" aria-hidden="true"></div>
     </div>
     <div class="kanji" aria-hidden="true">和田三造　配色</div>
@@ -24,20 +37,20 @@
   <section class="main">
     <form class="panel" id="panel" onsubmit="return false">
       <div class="seed">
-        <input type="color" id="picker" value="#1448c8" aria-label="Couleur de départ">
+        <input type="color" id="picker" value="#1448c8" aria-label="Couleur de départ" data-i18n-attr="aria-label=h.seed">
         <div>
-          <label class="label" for="hex">Couleur de départ</label>
+          <label class="label" for="hex" data-i18n="h.seed">Couleur de départ</label>
           <input class="hexfield" id="hex" value="#1448C8" spellcheck="false" autocomplete="off" maxlength="7">
           <p class="seedname" id="seedname"></p>
         </div>
       </div>
 
       <div class="multi">
-        <label class="check"><input type="checkbox" id="multi"> <span>Chercher avec une 2<sup>e</sup> couleur <span class="hint">(accords qui contiennent les deux)</span></span></label>
+        <label class="check"><input type="checkbox" id="multi"> <span data-i18n-html="h.multi">Chercher avec une 2<sup>e</sup> couleur <span class="hint">(accords qui contiennent les deux)</span></span></label>
         <div class="seed" id="seed2" hidden>
-          <input type="color" id="picker2" value="#e8dcc0" aria-label="Deuxième couleur">
+          <input type="color" id="picker2" value="#e8dcc0" aria-label="Deuxième couleur" data-i18n-attr="aria-label=h.seed2">
           <div>
-            <label class="label" for="hex2">Deuxième couleur</label>
+            <label class="label" for="hex2" data-i18n="h.seed2">Deuxième couleur</label>
             <input class="hexfield" id="hex2" value="#E8DCC0" spellcheck="false" autocomplete="off" maxlength="7">
             <p class="seedname" id="seedname2"></p>
           </div>
@@ -45,42 +58,42 @@
       </div>
 
       <div class="drop" id="drop">
-        <input type="file" id="file" accept="image/*" aria-label="Choisir une image">
-        <span><b>Dépose une image</b> ou clique pour la choisir</span>
-        <span class="hint">Photo, échantillon, nuancier. Tu peux aussi la coller (Ctrl+V).</span>
+        <input type="file" id="file" accept="image/*" aria-label="Choisir une image" data-i18n-attr="aria-label=h.drop.aria">
+        <span data-i18n-html="h.drop"><b>Dépose une image</b> ou clique pour la choisir</span>
+        <span class="hint" data-i18n="h.drop.hint">Photo, échantillon, nuancier. Tu peux aussi la coller (Ctrl+V).</span>
       </div>
       <div class="imgbox" id="imgbox" hidden>
-        <canvas id="canvas" aria-label="Image chargée : clique pour prélever une couleur"></canvas>
-        <p class="label">Couleurs de l'image</p>
+        <canvas id="canvas" aria-label="Image chargée : clique pour prélever une couleur" data-i18n-attr="aria-label=h.canvas"></canvas>
+        <p class="label" data-i18n="h.imgcolors">Couleurs de l'image</p>
         <div class="chips" id="chips"></div>
-        <p class="hint">Clique une pastille, ou directement sur l'image pour prélever un point précis.</p>
+        <p class="hint" data-i18n="h.imghint">Clique une pastille, ou directement sur l'image pour prélever un point précis.</p>
         <div class="target" id="targetBox" hidden>
-          <p class="label" id="targetLabel">Un clic remplit</p>
+          <p class="label" id="targetLabel" data-i18n="h.target">Un clic remplit</p>
           <div class="seg" role="group" aria-labelledby="targetLabel" id="targetSeg">
-            <button type="button" data-v="1" aria-pressed="false">Couleur 1</button>
-            <button type="button" data-v="2" aria-pressed="true">Couleur 2</button>
+            <button type="button" data-v="1" aria-pressed="false" data-i18n="h.color1">Couleur 1</button>
+            <button type="button" data-v="2" aria-pressed="true" data-i18n="h.color2">Couleur 2</button>
           </div>
         </div>
       </div>
 
       <div class="opts">
         <div>
-          <p class="label" id="sizeLabel">Taille de l'accord</p>
+          <p class="label" id="sizeLabel" data-i18n="h.size">Taille de l'accord</p>
           <div class="seg" role="group" aria-labelledby="sizeLabel" id="sizeSeg">
-            <button type="button" data-v="0" aria-pressed="true">Tous</button>
+            <button type="button" data-v="0" aria-pressed="true" data-i18n="h.all">Tous</button>
             <button type="button" data-v="2" aria-pressed="false">2</button>
             <button type="button" data-v="3" aria-pressed="false">3</button>
             <button type="button" data-v="4" aria-pressed="false">4</button>
           </div>
         </div>
-        <label class="check"><input type="checkbox" id="substitute" checked> <span>Mettre ma couleur exacte à la place de sa voisine Wada</span></label>
-        <label class="check"><input type="checkbox" id="transpose"> <span>Transposer les autres couleurs vers ma teinte <span class="hint">(interprétation, plus du Wada strict)</span></span></label>
+        <label class="check"><input type="checkbox" id="substitute" checked> <span data-i18n="h.substitute">Mettre ma couleur exacte à la place de sa voisine Wada</span></label>
+        <label class="check"><input type="checkbox" id="transpose"> <span data-i18n-html="h.transpose">Transposer les autres couleurs vers ma teinte <span class="hint">(interprétation, plus du Wada strict)</span></span></label>
       </div>
     </form>
 
     <div class="results">
       <div class="results-head">
-        <h2>Accords suggérés</h2>
+        <h2 data-i18n="h.suggested">Accords suggérés</h2>
         <p class="hint" id="resultHint"></p>
       </div>
       <ul class="cards" id="cards"></ul>
@@ -97,27 +110,27 @@
       <div class="rows" id="rows"></div>
       <div class="tablewrap" role="region" aria-labelledby="valsCaption" tabindex="0">
         <table class="vals">
-          <caption id="valsCaption">Valeurs pour la fabrication <span class="hint">CMJN sans profil ICC et LRV estimé depuis l'écran : à confirmer sur nuancier.</span></caption>
-          <thead><tr><th scope="col">Couleur</th><th scope="col">HEX</th><th scope="col">RGB</th><th scope="col">HSL</th><th scope="col">OKLCH</th><th scope="col">CMJN ≈</th><th scope="col"><abbr title="Light Reflectance Value : part de lumière réfléchie, de 0 (noir) à 100 (blanc)">LRV</abbr> ≈</th></tr></thead>
+          <caption id="valsCaption" data-i18n-html="h.vals">Valeurs pour la fabrication <span class="hint">CMJN sans profil ICC et LRV estimé depuis l'écran : à confirmer sur nuancier.</span></caption>
+          <thead><tr><th scope="col" data-i18n="h.col.color">Couleur</th><th scope="col">HEX</th><th scope="col">RGB</th><th scope="col">HSL</th><th scope="col">OKLCH</th><th scope="col" data-i18n="h.col.cmyk">CMJN ≈</th><th scope="col"><abbr title="Light Reflectance Value : part de lumière réfléchie, de 0 (noir) à 100 (blanc)" data-i18n-attr="title=h.lrv.title">LRV</abbr> ≈</th></tr></thead>
           <tbody id="vals"></tbody>
         </table>
       </div>
       <div class="actions">
-        <button class="btn" type="button" id="rotate">Changer la couleur dominante</button>
-        <button class="btn ghost fav" type="button" id="fav" aria-pressed="false">Garder dans le projet</button>
-        <button class="btn ghost" type="button" data-copy="hex">Copier les hex</button>
-        <button class="btn ghost" type="button" data-copy="css">Copier en CSS</button>
-        <button class="btn ghost" type="button" data-copy="prompt">Copier pour un prompt</button>
-        <button class="btn ghost" type="button" data-copy="table">Copier le tableau</button>
+        <button class="btn" type="button" id="rotate" data-i18n="h.rotate">Changer la couleur dominante</button>
+        <button class="btn ghost fav" type="button" id="fav" aria-pressed="false" data-i18n="h.fav">Garder dans le projet</button>
+        <button class="btn ghost" type="button" data-copy="hex" data-i18n="h.copy.hex">Copier les hex</button>
+        <button class="btn ghost" type="button" data-copy="css" data-i18n="h.copy.css">Copier en CSS</button>
+        <button class="btn ghost" type="button" data-copy="prompt" data-i18n="h.copy.prompt">Copier pour un prompt</button>
+        <button class="btn ghost" type="button" data-copy="table" data-i18n="h.copy.table">Copier le tableau</button>
       </div>
       <div class="actions">
-        <p class="label actions-label">Pour ton client</p>
-        <button class="btn" type="button" id="sheetPng">Planche PNG</button>
-        <button class="btn ghost" type="button" id="sheetPrint">Imprimer ou PDF</button>
-        <button class="btn ghost" type="button" data-copy="link">Copier le lien</button>
+        <p class="label actions-label" data-i18n="h.forclient">Pour ton client</p>
+        <button class="btn" type="button" id="sheetPng" data-i18n="h.sheet.png">Planche PNG</button>
+        <button class="btn ghost" type="button" id="sheetPrint" data-i18n="h.sheet.print">Imprimer ou PDF</button>
+        <button class="btn ghost" type="button" data-copy="link" data-i18n="h.copy.link">Copier le lien</button>
       </div>
       <div class="actions">
-        <p class="label actions-label">Pour tes logiciels</p>
+        <p class="label actions-label" data-i18n="h.forsoftware">Pour tes logiciels</p>
         <button class="btn ghost" type="button" data-export="ase">Adobe (.ase)</button>
         <button class="btn ghost" type="button" data-export="tokens">Design tokens (.json)</button>
         <button class="btn ghost" type="button" data-export="tailwind">Tailwind (.css)</button>
@@ -127,29 +140,29 @@
       <pre class="out" id="out"></pre>
     </div>
     <div class="scene">
-      <div class="seg" role="group" aria-label="Mise en situation" id="sceneSeg">
-        <button type="button" data-v="interieur" aria-pressed="true">Intérieur</button>
-        <button type="button" data-v="mode" aria-pressed="false">Mode</button>
-        <button type="button" data-v="graphisme" aria-pressed="false">Graphisme</button>
+      <div class="seg" role="group" aria-label="Mise en situation" data-i18n-attr="aria-label=h.scene" id="sceneSeg">
+        <button type="button" data-v="interieur" aria-pressed="true" data-i18n="h.interieur">Intérieur</button>
+        <button type="button" data-v="mode" aria-pressed="false" data-i18n="h.mode">Mode</button>
+        <button type="button" data-v="graphisme" aria-pressed="false" data-i18n="h.graphisme">Graphisme</button>
       </div>
       <div id="scene"></div>
       <p class="hint" id="sceneHint"></p>
       <div class="sim">
         <div>
-          <p class="label" id="lightLabel">Lumière</p>
+          <p class="label" id="lightLabel" data-i18n="h.light">Lumière</p>
           <div class="seg" role="group" aria-labelledby="lightLabel" id="lightSeg">
-            <button type="button" data-v="6500" aria-pressed="true" title="Lumière du jour">6500 K</button>
-            <button type="button" data-v="4000" aria-pressed="false" title="Blanc neutre">4000 K</button>
-            <button type="button" data-v="2700" aria-pressed="false" title="Ampoule chaude">2700 K</button>
+            <button type="button" data-v="6500" aria-pressed="true" title="Lumière du jour" data-i18n-attr="title=h.light.6500">6500 K</button>
+            <button type="button" data-v="4000" aria-pressed="false" title="Blanc neutre" data-i18n-attr="title=h.light.4000">4000 K</button>
+            <button type="button" data-v="2700" aria-pressed="false" title="Ampoule chaude" data-i18n-attr="title=h.light.2700">2700 K</button>
           </div>
         </div>
         <div>
-          <p class="label" id="visionLabel">Vision</p>
+          <p class="label" id="visionLabel" data-i18n="h.vision">Vision</p>
           <div class="seg" role="group" aria-labelledby="visionLabel" id="visionSeg">
-            <button type="button" data-v="normale" aria-pressed="true">Normale</button>
-            <button type="button" data-v="protan" aria-pressed="false" title="Protanopie">Protan.</button>
-            <button type="button" data-v="deutan" aria-pressed="false" title="Deutéranopie">Deutan.</button>
-            <button type="button" data-v="tritan" aria-pressed="false" title="Tritanopie">Tritan.</button>
+            <button type="button" data-v="normale" aria-pressed="true" data-i18n="h.normale">Normale</button>
+            <button type="button" data-v="protan" aria-pressed="false" title="Protanopie" data-i18n-attr="title=h.protan">Protan.</button>
+            <button type="button" data-v="deutan" aria-pressed="false" title="Deutéranopie" data-i18n-attr="title=h.deutan">Deutan.</button>
+            <button type="button" data-v="tritan" aria-pressed="false" title="Tritanopie" data-i18n-attr="title=h.tritan">Tritan.</button>
           </div>
         </div>
       </div>
@@ -161,46 +174,49 @@
   <section class="projects" aria-labelledby="projTitle">
     <div class="dict-head">
       <div>
-        <p class="label">Ta bibliothèque</p>
-        <h2 id="projTitle">Projets et favoris</h2>
+        <p class="label" data-i18n="h.library">Ta bibliothèque</p>
+        <h2 id="projTitle" data-i18n="h.projects">Projets et favoris</h2>
       </div>
       <div class="proj-tools">
-        <div class="field"><label class="label" for="projSel">Projet ouvert</label><select id="projSel"></select></div>
-        <div class="field"><label class="label" for="projName">Nom du projet</label><input class="textin" id="projName" maxlength="60" autocomplete="off"></div>
-        <button class="btn ghost" type="button" id="projNew">Nouveau projet</button>
-        <button class="btn ghost" type="button" id="projDelete">Supprimer</button>
+        <div class="field"><label class="label" for="projSel" data-i18n="h.projsel">Projet ouvert</label><select id="projSel"></select></div>
+        <div class="field"><label class="label" for="projName" data-i18n="h.projname">Nom du projet</label><input class="textin" id="projName" maxlength="60" autocomplete="off"></div>
+        <button class="btn ghost" type="button" id="projNew" data-i18n="h.projnew">Nouveau projet</button>
+        <button class="btn ghost" type="button" id="projDelete" data-i18n="h.projdel">Supprimer</button>
       </div>
     </div>
     <ul class="saved" id="saved"></ul>
     <p class="hint" id="savedHint"></p>
     <div class="actions">
-      <button class="btn ghost" type="button" id="projExport">Exporter le projet (.json)</button>
-      <label class="btn ghost filebtn">Importer un projet<input type="file" id="projImport" accept=".json,application/json"></label>
+      <button class="btn ghost" type="button" id="projExport" data-i18n="h.projexport">Exporter le projet (.json)</button>
+      <label class="btn ghost filebtn"><span data-i18n="h.projimport">Importer un projet</span><input type="file" id="projImport" accept=".json,application/json"></label>
     </div>
     <details class="history">
-      <summary>Historique récent (<span id="historyCount">0</span>)</summary>
+      <summary><span data-i18n="h.history">Historique récent</span> (<span id="historyCount">0</span>)</summary>
       <ul class="saved" id="history"></ul>
     </details>
   </section>
 
-  <section class="dict">
+  <section class="dict" id="dictionnaire">
     <div class="dict-head">
       <div>
-        <p class="label">Les 348 combinaisons</p>
-        <h2>Parcourir le dictionnaire</h2>
+        <p class="label" data-i18n="h.dict.kicker">Les 348 combinaisons</p>
+        <h2 data-i18n="h.dict.title">Parcourir le dictionnaire</h2>
       </div>
-      <div class="seg" role="group" aria-label="Filtrer le dictionnaire" id="dictSeg">
-        <button type="button" data-v="0" aria-pressed="true">Toutes</button>
-        <button type="button" data-v="2" aria-pressed="false">2 couleurs</button>
-        <button type="button" data-v="3" aria-pressed="false">3 couleurs</button>
-        <button type="button" data-v="4" aria-pressed="false">4 couleurs</button>
+      <div class="seg" role="group" aria-label="Filtrer le dictionnaire" data-i18n-attr="aria-label=h.dict.filter" id="dictSeg">
+        <button type="button" data-v="0" aria-pressed="true" data-i18n="h.all.f">Toutes</button>
+        <button type="button" data-v="2" aria-pressed="false" data-i18n="h.c2">2 couleurs</button>
+        <button type="button" data-v="3" aria-pressed="false" data-i18n="h.c3">3 couleurs</button>
+        <button type="button" data-v="4" aria-pressed="false" data-i18n="h.c4">4 couleurs</button>
       </div>
     </div>
     <ul class="dict-grid" id="dictGrid"></ul>
-    <p class="note">Sanzo Wada (1883–1967) a publié ses combinaisons entre 1933 et 1934 dans <i>Haishoku Sōkan</i>, réédité en 2010 par Seigensha sous le titre <i>A Dictionary of Color Combinations</i>. Les valeurs hex viennent de la conversion CMJN → HEX de HexPot : ce sont des cibles à vérifier sur ton support réel (tissu, peinture, impression). Correspondance <b>fidèle</b> : écart OKLab ≤ 6 ; <b>proche</b> : ≤ 12 ; <b>libre</b> : au-delà.</p>
+    <p class="note" data-i18n-html="h.pages">Chaque combinaison a sa propre page : <a href="accord/">parcourir les 348 fiches</a>.</p>
+    <p class="note" data-i18n-html="h.note">Sanzo Wada (1883–1967) a publié ses combinaisons entre 1933 et 1934 dans <i>Haishoku Sōkan</i>, réédité en 2010 par Seigensha sous le titre <i>A Dictionary of Color Combinations</i>. Les valeurs hex viennent de la conversion CMJN → HEX de HexPot : ce sont des cibles à vérifier sur ton support réel (tissu, peinture, impression). Correspondance <b>fidèle</b> : écart OKLab ≤ 6 ; <b>proche</b> : ≤ 12 ; <b>libre</b> : au-delà.</p>
   </section>
 </div>
-<img class="print-sheet" id="printSheet" alt="Planche de l'accord">
+<img class="print-sheet" id="printSheet" alt="Planche de l'accord" data-i18n-attr="alt=h.sheet.alt">
+<script src="src/core.js"></script>
+<script src="src/i18n.js"></script>
 <script src="src/wada-data.js"></script>
 <script src="src/app.js"></script>
 </body>

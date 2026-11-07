@@ -1,0 +1,19 @@
+{
+  "name": "Accords Wada",
+  "short_name": "Accords Wada",
+  "description": "Pars d'une couleur ou d'une photo et trouve les combinaisons du Dictionary of Color Combinations de Sanzo Wada qui la contiennent.",
+  "lang": "fr",
+  "start_url": "./",
+  "scope": "./",
+  "id": "./",
+  "display": "standalone",
+  "background_color": "#f1f1ef",
+  "theme_color": "#f1f1ef",
+  "categories": ["design", "productivity"],
+  "icons": [
+    { "src": "icons/icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any" },
+    { "src": "icons/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "icons/icon-maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
+}
