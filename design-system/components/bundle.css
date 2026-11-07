@@ -1,0 +1,77 @@
+/* MML Codes Image — composants. Toutes les couleurs sont des rôles dérivés de la couleur de départ (MML.appliquerAccord). */
+.mml-surtitre { font-family: var(--font-sans); font-size: 11px; line-height: 14px; font-weight: 700; letter-spacing: .6px; text-transform: uppercase; color: var(--texte-tableau); }
+
+/* Bouton */
+.mml-bouton { font: 700 14px/20px var(--font-sans); padding: var(--space-2) var(--space-4); border-radius: var(--radius-sm); border: 1px solid transparent; cursor: pointer; }
+.mml-bouton--plein { background: var(--base); color: var(--sur-base); }
+.mml-bouton--plein:hover { background: var(--base-survol); }
+.mml-bouton--accent { background: var(--accord-1); color: var(--sur-accord); }
+.mml-bouton--trait { background: transparent; color: var(--base-texte); border-color: var(--base-texte); }
+.mml-bouton--trait:hover { background: var(--teinte-douce); }
+.mml-bouton:focus-visible, .mml-puce:focus-visible, .mml-accord__item:focus-visible, .mml-prompt__copier:focus-visible { outline: 2px solid var(--base-texte); outline-offset: 2px; }
+.mml-bouton:disabled { opacity: .45; cursor: not-allowed; }
+
+/* En-tête */
+.mml-entete { display: flex; align-items: flex-end; justify-content: space-between; gap: var(--space-4); padding-bottom: var(--space-2); border-bottom: 1px solid var(--filet); font-family: var(--font-sans); }
+.mml-entete__marque { display: flex; align-items: stretch; gap: var(--space-2); }
+.mml-entete__bloc { display: grid; place-items: center; min-width: 52px; padding: 0 var(--space-2); background: var(--base); color: var(--sur-base); font: 700 15px/36px var(--font-display); }
+.mml-entete__filet { width: 3px; background: var(--accord-1); }
+.mml-entete__nom { display: flex; flex-direction: column; justify-content: center; color: var(--encre); }
+.mml-entete__nom b { font: 700 12px/15px var(--font-display); letter-spacing: .3px; }
+.mml-entete__nom small { font-size: 8px; letter-spacing: .6px; color: var(--encre-douce); }
+
+/* Mode opératoire */
+.mml-mode { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-2); list-style: none; margin: 0; padding: 0; }
+.mml-mode__etape { padding: var(--space-3) var(--space-4); min-width: 88px; text-align: center; border-radius: var(--radius-sm); background: var(--papier-clair); border: 1px solid var(--filet); color: var(--encre); font: 700 12px/16px var(--font-sans); letter-spacing: .6px; text-transform: uppercase; }
+.mml-mode__etape.is-bout { background: var(--base); border-color: var(--base); color: var(--sur-base); }
+.mml-mode__fleche { color: var(--accord-texte); font-size: 16px; }
+
+/* Bloc prompt */
+.mml-prompt { position: relative; margin: 0; padding: var(--space-4); padding-right: 84px; background: var(--teinte-douce); border-left: 0; font-family: var(--font-sans); }
+.mml-prompt .mml-surtitre { display: block; margin-bottom: var(--space-1); }
+.mml-prompt__code { margin: 0; white-space: pre-wrap; font: 400 13px/19px var(--font-sans); color: var(--encre); }
+.mml-prompt__copier { position: absolute; top: var(--space-3); right: var(--space-3); font: 700 11px/14px var(--font-sans); letter-spacing: .4px; padding: 6px 10px; border-radius: var(--radius-sm); background: var(--base); color: var(--sur-base); border: 0; cursor: pointer; }
+
+/* Fiche commande */
+.mml-fiche { font: 400 14px/21px var(--font-sans); color: var(--encre); }
+.mml-fiche__titre { margin: 0 0 var(--space-2); font: 700 16px/22px var(--font-display); color: var(--base-texte); }
+.mml-fiche__titre span { margin-right: var(--space-2); }
+.mml-fiche__titre code { font: inherit; margin-right: var(--space-1); }
+.mml-fiche__ligne { margin: 0 0 var(--space-1); }
+.mml-fiche__prompt { margin: var(--space-1) 0 var(--space-2); padding: var(--space-2) var(--space-3); background: var(--teinte-douce); font-size: 13px; line-height: 19px; }
+.mml-fiche__validation { margin: var(--space-1) 0 0; color: var(--alerte-texte); }
+
+/* Tableau */
+.mml-tableau { width: 100%; border-collapse: collapse; font: 400 12px/17px var(--font-sans); border-bottom: 2px solid var(--base); }
+.mml-tableau thead th { background: var(--base); color: var(--sur-base); text-align: left; font-weight: 700; padding: var(--space-2) var(--space-3); border-top: 2px solid var(--base); }
+.mml-tableau tbody th, .mml-tableau td { text-align: left; vertical-align: top; padding: 6px var(--space-3); color: var(--texte-tableau); }
+.mml-tableau tbody th { font-weight: 700; }
+.mml-tableau tbody tr:nth-child(odd) { background: var(--teinte); }
+.mml-tableau tbody tr:nth-child(even) { background: var(--papier-clair); }
+
+/* Nuancier */
+.mml-nuancier { font-family: var(--font-sans); }
+.mml-nuancier__bande { display: flex; height: 56px; }
+.mml-nuancier__plage { min-width: 24px; }
+.mml-nuancier__legende { display: flex; flex-wrap: wrap; gap: var(--space-1) var(--space-4); margin-top: var(--space-2); font-size: 12px; color: var(--encre); font-variant-numeric: tabular-nums; }
+.mml-nuancier__legende b { color: var(--encre-douce); font-weight: 700; }
+.mml-nuancier__source { margin: var(--space-1) 0 0; font-size: 12px; color: var(--encre-douce); }
+
+/* Accord Wada */
+.mml-accord { display: grid; gap: var(--space-4); font-family: var(--font-sans); color: var(--encre); }
+.mml-accord__saisie { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: var(--space-3); }
+.mml-accord__couleur { display: flex; align-items: center; gap: var(--space-3); }
+.mml-accord__couleur > span { display: flex; flex-direction: column; gap: 2px; }
+.mml-accord__couleur input[type=color] { width: 48px; height: 48px; padding: 0; border: 1px solid var(--filet); background: none; cursor: pointer; }
+.mml-accord__hex { width: 96px; font: 700 15px/22px var(--font-sans); color: var(--encre); background: var(--papier-clair); border: 1px solid var(--filet); padding: 2px 6px; text-transform: uppercase; }
+.mml-accord__filtres { display: flex; align-items: center; gap: var(--space-1); }
+.mml-puce { font: 700 12px/16px var(--font-sans); padding: 5px 10px; border-radius: var(--radius-sm); border: 1px solid var(--filet); background: var(--papier-clair); color: var(--encre); cursor: pointer; }
+.mml-puce.is-on { background: var(--base); border-color: var(--base); color: var(--sur-base); }
+.mml-accord__transposer { display: flex; align-items: center; gap: 4px; margin-left: var(--space-2); font-size: 12px; color: var(--encre-douce); }
+.mml-accord__liste { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: var(--space-2); list-style: none; margin: 0; padding: 0; }
+.mml-accord__item { width: 100%; display: grid; grid-template-columns: auto 1fr; gap: 6px var(--space-2); align-items: center; padding: var(--space-2); background: var(--papier-clair); border: 1px solid var(--filet); border-radius: var(--radius-sm); cursor: pointer; text-align: left; color: var(--encre); font: 700 12px/16px var(--font-sans); }
+.mml-accord__item.is-on { border-color: var(--base-texte); box-shadow: inset 0 0 0 1px var(--base-texte); }
+.mml-accord__mini { grid-column: 1 / -1; display: flex; height: 22px; }
+.mml-accord__mini i { flex: 1; }
+.mml-accord__fid { justify-self: end; font-weight: 400; color: var(--encre-douce); }
+.mml-accord__fid.is-fidele { color: var(--base-texte); font-weight: 700; }

@@ -1,0 +1,138 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Accords Wada</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Shippori+Mincho:wght@500;700&family=Zen+Kaku+Gothic+New:wght@400;500;700&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<link rel="stylesheet" href="src/styles.css">
+</head>
+<body>
+<div class="wrap">
+  <header class="head">
+    <div>
+      <p class="label">D'après Sanzo Wada · 配色総鑑 · 1933</p>
+      <h1>Accords Wada</h1>
+      <p class="lede">Choisis une couleur ou dépose la photo d'un tissu, d'une peinture, d'un matériau. L'outil cherche dans les 348 combinaisons du <i>Dictionary of Color Combinations</i> celles qui contiennent ta couleur, et te propose les déclinaisons.</p>
+      <div class="strip" id="headStrip" aria-hidden="true"></div>
+    </div>
+    <div class="kanji" aria-hidden="true">和田三造　配色</div>
+  </header>
+
+  <section class="main">
+    <form class="panel" id="panel" onsubmit="return false">
+      <div class="seed">
+        <input type="color" id="picker" value="#1448c8" aria-label="Couleur de départ">
+        <div>
+          <label class="label" for="hex">Couleur de départ</label>
+          <input class="hexfield" id="hex" value="#1448C8" spellcheck="false" autocomplete="off" maxlength="7">
+          <p class="seedname" id="seedname"></p>
+        </div>
+      </div>
+
+      <div class="multi">
+        <label class="check"><input type="checkbox" id="multi"> <span>Chercher avec une 2<sup>e</sup> couleur <span class="hint">(accords qui contiennent les deux)</span></span></label>
+        <div class="seed" id="seed2" hidden>
+          <input type="color" id="picker2" value="#e8dcc0" aria-label="Deuxième couleur">
+          <div>
+            <label class="label" for="hex2">Deuxième couleur</label>
+            <input class="hexfield" id="hex2" value="#E8DCC0" spellcheck="false" autocomplete="off" maxlength="7">
+            <p class="seedname" id="seedname2"></p>
+          </div>
+        </div>
+      </div>
+
+      <div class="drop" id="drop">
+        <input type="file" id="file" accept="image/*" aria-label="Choisir une image">
+        <span><b>Dépose une image</b> ou clique pour la choisir</span>
+        <span class="hint">Photo, échantillon, nuancier. Tu peux aussi la coller (Ctrl+V).</span>
+      </div>
+      <div class="imgbox" id="imgbox" hidden>
+        <canvas id="canvas" aria-label="Image chargée : clique pour prélever une couleur"></canvas>
+        <p class="label">Couleurs de l'image</p>
+        <div class="chips" id="chips"></div>
+        <p class="hint">Clique une pastille, ou directement sur l'image pour prélever un point précis.</p>
+        <div class="target" id="targetBox" hidden>
+          <p class="label" id="targetLabel">Un clic remplit</p>
+          <div class="seg" role="group" aria-labelledby="targetLabel" id="targetSeg">
+            <button type="button" data-v="1" aria-pressed="false">Couleur 1</button>
+            <button type="button" data-v="2" aria-pressed="true">Couleur 2</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="opts">
+        <div>
+          <p class="label" id="sizeLabel">Taille de l'accord</p>
+          <div class="seg" role="group" aria-labelledby="sizeLabel" id="sizeSeg">
+            <button type="button" data-v="0" aria-pressed="true">Tous</button>
+            <button type="button" data-v="2" aria-pressed="false">2</button>
+            <button type="button" data-v="3" aria-pressed="false">3</button>
+            <button type="button" data-v="4" aria-pressed="false">4</button>
+          </div>
+        </div>
+        <label class="check"><input type="checkbox" id="substitute" checked> <span>Mettre ma couleur exacte à la place de sa voisine Wada</span></label>
+        <label class="check"><input type="checkbox" id="transpose"> <span>Transposer les autres couleurs vers ma teinte <span class="hint">(interprétation, plus du Wada strict)</span></span></label>
+      </div>
+    </form>
+
+    <div class="results">
+      <div class="results-head">
+        <h2>Accords suggérés</h2>
+        <p class="hint" id="resultHint"></p>
+      </div>
+      <ul class="cards" id="cards"></ul>
+    </div>
+  </section>
+
+  <section class="detail" id="detail" aria-live="polite">
+    <div class="detail-info">
+      <div>
+        <p class="label" id="detailLabel"></p>
+        <h2 id="detailTitle"></h2>
+      </div>
+      <div class="bigsw" id="bigsw"></div>
+      <div class="rows" id="rows"></div>
+      <div class="actions">
+        <button class="btn" type="button" id="rotate">Changer la couleur dominante</button>
+        <button class="btn ghost" type="button" data-copy="hex">Copier les hex</button>
+        <button class="btn ghost" type="button" data-copy="css">Copier en CSS</button>
+        <button class="btn ghost" type="button" data-copy="prompt">Copier pour un prompt</button>
+      </div>
+      <p class="toast" id="toast" role="status"></p>
+      <pre class="out" id="out"></pre>
+    </div>
+    <div class="scene">
+      <div class="seg" role="group" aria-label="Mise en situation" id="sceneSeg">
+        <button type="button" data-v="interieur" aria-pressed="true">Intérieur</button>
+        <button type="button" data-v="mode" aria-pressed="false">Mode</button>
+        <button type="button" data-v="graphisme" aria-pressed="false">Graphisme</button>
+      </div>
+      <div id="scene"></div>
+      <p class="hint" id="sceneHint"></p>
+    </div>
+  </section>
+
+  <section class="dict">
+    <div class="dict-head">
+      <div>
+        <p class="label">Les 348 combinaisons</p>
+        <h2>Parcourir le dictionnaire</h2>
+      </div>
+      <div class="seg" role="group" aria-label="Filtrer le dictionnaire" id="dictSeg">
+        <button type="button" data-v="0" aria-pressed="true">Toutes</button>
+        <button type="button" data-v="2" aria-pressed="false">2 couleurs</button>
+        <button type="button" data-v="3" aria-pressed="false">3 couleurs</button>
+        <button type="button" data-v="4" aria-pressed="false">4 couleurs</button>
+      </div>
+    </div>
+    <ul class="dict-grid" id="dictGrid"></ul>
+    <p class="note">Sanzo Wada (1883–1967) a publié ses combinaisons entre 1933 et 1934 dans <i>Haishoku Sōkan</i>, réédité en 2010 par Seigensha sous le titre <i>A Dictionary of Color Combinations</i>. Les valeurs hex viennent de la conversion CMJN → HEX de HexPot : ce sont des cibles à vérifier sur ton support réel (tissu, peinture, impression). Correspondance <b>fidèle</b> : écart OKLab ≤ 6 ; <b>proche</b> : ≤ 12 ; <b>libre</b> : au-delà.</p>
+  </section>
+</div>
+<script src="src/wada-data.js"></script>
+<script src="src/app.js"></script>
+</body>
+</html>
