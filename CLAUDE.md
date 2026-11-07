@@ -27,6 +27,18 @@ Application web qui part d'une couleur (choisie ou prélevée sur une image) et 
 - **Lien partageable** : tout l'état tient dans le hash, `#c=…&c2=…&n=…&o=…&t=…&ex=0&tr=1&sc=…` (couleurs sans `#`, ordre `o` en indices séparés par des points). Un lien passe avant `localStorage`. Garder ce format rétrocompatible : des liens circulent chez les clients.
 - **Valeurs** : HEX, RGB, HSL, OKLCH, CMJN et LRV. Le CMJN est naïf (sans profil ICC) et le LRV estimé (luminance Y × 100 depuis le sRGB) : toujours les marquer « ≈ » et les présenter comme à confirmer sur nuancier.
 - **Planche** : A4 paysage, 300 dpi, dessinée en canvas (unités 1754 × 1240, ×2). Elle porte toujours le n° Wada, la fidélité, la mention de transposition si active, et la note sur les hex HexPot. « Imprimer ou PDF » imprime cette planche via `@media print`.
+- **Exports logiciels** : `.ase` (Adobe, binaire construit par `aseBytes`), design tokens au format W3C (`$type`/`$value`), thème Tailwind v4 (`@theme`, équivalent v3 en commentaire), palette `.gpl` (GIMP, Inkscape). Fonctions pures `aseBytes`, `tokensText`, `tailwindText`, `gplText`.
+
+## Simulations
+
+- Lumière 6500 / 4000 / 2700 K (adaptation de Bradford, `KEEP` = 0.5 de la teinte de la lampe conservée) et daltonisme (matrices de Machado 2009, en RGB linéaire). Elles ne touchent que l'aperçu (grande bande, mise en situation) : valeurs, copies, exports et planche restent les couleurs de l'accord.
+- Alerte daltonisme : paire dont l'écart OKLab simulé est < 0.04, testée pour les trois types.
+
+## Projets et favoris
+
+- `localStorage` clé `accords-wada-projets` : `{ v: 1, current, projects: [{ id, name, items }], history }`. Un item = `{ hash, n, colors, note, added }` ; l'historique garde les 12 derniers accords.
+- Deux liens désignent le même accord s'ils ne diffèrent que par la scène ou le filtre (`keyOf`).
+- Export/import JSON `{ format: "accords-wada-projet", version: 1, name, items }`. À l'import, tout est revalidé : liens relus puis resérialisés (`hashOf`), hex vérifiés, textes bornés ; jamais d'`innerHTML` avec des données importées.
 
 ## Conventions
 
@@ -39,15 +51,13 @@ Application web qui part d'une couleur (choisie ou prélevée sur une image) et 
 
 ## Vérifier avant de livrer
 
-Ouvrir `index.html`, tester une couleur saisie, une image déposée, la recherche à deux couleurs (pastilles « Couleur 1 / Couleur 2 »), le filtre 2/3/4, la transposition, les trois mises en situation, les copies, un lien partagé rouvert dans un nouvel onglet, la planche PNG et l'aperçu d'impression, puis le thème sombre et une largeur de 400 px. Aucune erreur dans la console.
+Ouvrir `index.html`, tester une couleur saisie, une image déposée, la recherche à deux couleurs (pastilles « Couleur 1 / Couleur 2 »), le filtre 2/3/4, la transposition, les trois mises en situation, les copies, un lien partagé rouvert dans un nouvel onglet, la planche PNG et l'aperçu d'impression, les quatre exports logiciels, les simulations lumière et vision, un favori ajouté puis rouvert, l'export puis l'import d'un projet, puis le thème sombre et une largeur de 400 px. Aucune erreur dans la console.
 
 ## Pistes d'évolution
 
-- Simulation de daltonisme (protanopie, deutéranopie) sur l'accord choisi.
 - Correspondances nuanciers (RAL, Pantone, peintures murales) — uniquement avec une source de données licite.
-- Exports logiciels : `.ase` (Adobe), variables Figma / design tokens JSON, config Tailwind, `.gpl`.
-- Matrice de contraste WCAG de toutes les paires, proportions réglables, déclinaisons claires/foncées, simulation d'éclairage (2700 K / 6500 K).
+- Matrice de contraste WCAG de toutes les paires, proportions réglables, déclinaisons claires/foncées.
+- Tests des fonctions pures avec `node --test` (conversions, recherche, exports, `cleanItems`).
 - Autres sources du domaine public (Owen Jones, Séguy, kasane no irome) et générateurs de règles (Chevreul, Ostwald), avec un champ `source` par accord ; Wada reste la source par défaut et ses règles ne changent pas.
-- Favoris et historique des accords (localStorage).
 - Mises en situation supplémentaires : cuisine, façade, packaging, interface mobile.
 - Version installable (PWA) et déploiement (GitHub Pages ou Netlify).

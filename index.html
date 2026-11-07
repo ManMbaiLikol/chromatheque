@@ -104,6 +104,7 @@
       </div>
       <div class="actions">
         <button class="btn" type="button" id="rotate">Changer la couleur dominante</button>
+        <button class="btn ghost fav" type="button" id="fav" aria-pressed="false">Garder dans le projet</button>
         <button class="btn ghost" type="button" data-copy="hex">Copier les hex</button>
         <button class="btn ghost" type="button" data-copy="css">Copier en CSS</button>
         <button class="btn ghost" type="button" data-copy="prompt">Copier pour un prompt</button>
@@ -114,6 +115,13 @@
         <button class="btn" type="button" id="sheetPng">Planche PNG</button>
         <button class="btn ghost" type="button" id="sheetPrint">Imprimer ou PDF</button>
         <button class="btn ghost" type="button" data-copy="link">Copier le lien</button>
+      </div>
+      <div class="actions">
+        <p class="label actions-label">Pour tes logiciels</p>
+        <button class="btn ghost" type="button" data-export="ase">Adobe (.ase)</button>
+        <button class="btn ghost" type="button" data-export="tokens">Design tokens (.json)</button>
+        <button class="btn ghost" type="button" data-export="tailwind">Tailwind (.css)</button>
+        <button class="btn ghost" type="button" data-export="gpl">GIMP · Inkscape (.gpl)</button>
       </div>
       <p class="toast" id="toast" role="status"></p>
       <pre class="out" id="out"></pre>
@@ -126,7 +134,53 @@
       </div>
       <div id="scene"></div>
       <p class="hint" id="sceneHint"></p>
+      <div class="sim">
+        <div>
+          <p class="label" id="lightLabel">Lumière</p>
+          <div class="seg" role="group" aria-labelledby="lightLabel" id="lightSeg">
+            <button type="button" data-v="6500" aria-pressed="true" title="Lumière du jour">6500 K</button>
+            <button type="button" data-v="4000" aria-pressed="false" title="Blanc neutre">4000 K</button>
+            <button type="button" data-v="2700" aria-pressed="false" title="Ampoule chaude">2700 K</button>
+          </div>
+        </div>
+        <div>
+          <p class="label" id="visionLabel">Vision</p>
+          <div class="seg" role="group" aria-labelledby="visionLabel" id="visionSeg">
+            <button type="button" data-v="normale" aria-pressed="true">Normale</button>
+            <button type="button" data-v="protan" aria-pressed="false" title="Protanopie">Protan.</button>
+            <button type="button" data-v="deutan" aria-pressed="false" title="Deutéranopie">Deutan.</button>
+            <button type="button" data-v="tritan" aria-pressed="false" title="Tritanopie">Tritan.</button>
+          </div>
+        </div>
+      </div>
+      <p class="hint" id="simHint"></p>
+      <p class="hint" id="cvdHint"></p>
     </div>
+  </section>
+
+  <section class="projects" aria-labelledby="projTitle">
+    <div class="dict-head">
+      <div>
+        <p class="label">Ta bibliothèque</p>
+        <h2 id="projTitle">Projets et favoris</h2>
+      </div>
+      <div class="proj-tools">
+        <div class="field"><label class="label" for="projSel">Projet ouvert</label><select id="projSel"></select></div>
+        <div class="field"><label class="label" for="projName">Nom du projet</label><input class="textin" id="projName" maxlength="60" autocomplete="off"></div>
+        <button class="btn ghost" type="button" id="projNew">Nouveau projet</button>
+        <button class="btn ghost" type="button" id="projDelete">Supprimer</button>
+      </div>
+    </div>
+    <ul class="saved" id="saved"></ul>
+    <p class="hint" id="savedHint"></p>
+    <div class="actions">
+      <button class="btn ghost" type="button" id="projExport">Exporter le projet (.json)</button>
+      <label class="btn ghost filebtn">Importer un projet<input type="file" id="projImport" accept=".json,application/json"></label>
+    </div>
+    <details class="history">
+      <summary>Historique récent (<span id="historyCount">0</span>)</summary>
+      <ul class="saved" id="history"></ul>
+    </details>
   </section>
 
   <section class="dict">

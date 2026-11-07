@@ -46,6 +46,81 @@
     return { hex: hex.toUpperCase(), rgb: rgb(hex).join(" "), hsl: h[0] + "° " + h[1] + "% " + h[2] + "%",
       oklch: (l[0] * 100).toFixed(1) + "% " + l[1].toFixed(3) + " " + (l[1] < 0.002 ? 0 : Math.round(l[2])) + "°", cmjn: cmykOf(hex).join(" "), lrv: lrvOf(hex).toFixed(1) };
   }
+  /* Simulations d'affichage : elles changent l'aperçu, jamais les valeurs de l'accord.
+     Éclairage : adaptation de Bradford, en gardant KEEP de la teinte de la lampe (l'œil n'en compense qu'une partie).
+     Daltonisme : matrices de Machado, Oliveira et Fernandes (2009), sévérité 1, appliquées en RGB linéaire. */
+  var SRGB_XYZ = [[0.4124564, 0.3575761, 0.1804375], [0.2126729, 0.7151522, 0.072175], [0.0193339, 0.119192, 0.9503041]];
+  var XYZ_SRGB = [[3.2404542, -1.5371385, -0.4985314], [-0.969266, 1.8760108, 0.041556], [0.0556434, -0.2040259, 1.0572252]];
+  var BRAD = [[0.8951, 0.2664, -0.1614], [-0.7502, 1.7135, 0.0367], [0.0389, -0.0685, 1.0296]];
+  var BRAD_INV = [[0.9869929, -0.1470543, 0.1599627], [0.4323053, 0.5183603, 0.0492912], [-0.0085287, 0.0400428, 0.9684867]];
+  function mul(M, v) { return M.map(function (r) { return r[0] * v[0] + r[1] * v[1] + r[2] * v[2]; }); }
+  function whiteXYZ(x, y) { return [x / y, 1, (1 - x - y) / y]; }
+  var LIGHTS = { 4000: whiteXYZ(0.3805, 0.3768), 2700: whiteXYZ(0.4599, 0.4106) }, D65_LMS = mul(BRAD, whiteXYZ(0.3127, 0.329)), KEEP = 0.5;
+  var CVD = {
+    protan: [[0.152286, 1.052583, -0.204868], [0.114503, 0.786281, 0.099216], [-0.003882, -0.048116, 1.051998]],
+    deutan: [[0.367322, 0.860646, -0.227968], [0.280085, 0.672501, 0.047413], [-0.01182, 0.04294, 0.968881]],
+    tritan: [[1.255528, -0.076749, -0.178779], [-0.078411, 0.930809, 0.147602], [0.004733, 0.691367, 0.3039]]
+  };
+  var CVD_NAMES = { protan: "protanopie", deutan: "deutéranopie", tritan: "tritanopie" };
+  function simulate(hex, light, vision) {
+    var v = rgb(hex).map(lin);
+    if (LIGHTS[light]) {
+      var W = mul(BRAD, LIGHTS[light]);
+      v = mul(XYZ_SRGB, mul(BRAD_INV, mul(BRAD, mul(SRGB_XYZ, v)).map(function (c, i) { return c * (1 + (W[i] / D65_LMS[i] - 1) * KEEP); })));
+    }
+    if (CVD[vision]) v = mul(CVD[vision], v);
+    return toHex(v.map(delin));
+  }
+  // Paires de couleurs que chaque type de daltonisme rend difficiles à distinguer (écart OKLab simulé < 0.04).
+  function confusions(cs) {
+    var out = [];
+    Object.keys(CVD).forEach(function (k) {
+      var s = cs.map(function (c) { return lab(simulate(c, 6500, k)); });
+      for (var i = 0; i < cs.length; i++) for (var j = i + 1; j < cs.length; j++) if (dist(s[i], s[j]) < 0.04) out.push({ k: k, a: cs[i], b: cs[j] });
+    });
+    return out;
+  }
+
+  /* Exports logiciels : fonctions pures, items = [{ hex, role, slug, pct, name }]. */
+  function aseBytes(title, items) {
+    var chunks = [];
+    function utf16(s) { var b = new Uint8Array((s.length + 1) * 2); for (var i = 0; i < s.length; i++) { b[i * 2] = s.charCodeAt(i) >> 8; b[i * 2 + 1] = s.charCodeAt(i) & 255; } return b; }
+    function named(name, extra) { var s = utf16(name), b = new Uint8Array(2 + s.length + extra.length); new DataView(b.buffer).setUint16(0, name.length + 1); b.set(s, 2); b.set(extra, 2 + s.length); return b; }
+    function block(type, body) { var h = new DataView(new ArrayBuffer(6)); h.setUint16(0, type); h.setUint32(2, body.length); chunks.push(new Uint8Array(h.buffer), body); }
+    block(0xC001, named(title, new Uint8Array(0)));
+    items.forEach(function (it) {
+      var e = new DataView(new ArrayBuffer(18));
+      "RGB ".split("").forEach(function (ch, i) { e.setUint8(i, ch.charCodeAt(0)); });
+      rgb(it.hex).forEach(function (v, i) { e.setFloat32(4 + i * 4, v / 255); });
+      e.setUint16(16, 2); // couleur « normale » (ni globale ni ton direct)
+      block(0x0001, named(it.role + " " + it.hex.toUpperCase(), new Uint8Array(e.buffer)));
+    });
+    block(0xC002, new Uint8Array(0));
+    var head = new DataView(new ArrayBuffer(12));
+    "ASEF".split("").forEach(function (ch, i) { head.setUint8(i, ch.charCodeAt(0)); });
+    head.setUint16(4, 1); head.setUint16(6, 0); head.setUint32(8, items.length + 2);
+    chunks.unshift(new Uint8Array(head.buffer));
+    var size = chunks.reduce(function (s, c) { return s + c.length; }, 0), out = new Uint8Array(size), at = 0;
+    chunks.forEach(function (c) { out.set(c, at); at += c.length; });
+    return out;
+  }
+  function tokensText(n, items) {
+    var g = { $description: "Sanzo Wada n° " + n + " — proportions " + items.map(function (it) { return it.pct; }).join("/") + " (convention MML). Hex : cibles HexPot, à vérifier sur le support réel." };
+    items.forEach(function (it) { g[it.slug] = { $type: "color", $value: it.hex, $description: it.role + " · " + it.pct + " % · " + it.name }; });
+    var root = {}; root["wada-" + n] = g;
+    return JSON.stringify(root, null, 2) + "\n";
+  }
+  function tailwindText(n, items) {
+    return "/* Sanzo Wada n° " + n + " — " + items.map(function (it) { return it.pct; }).join("/") + " */\n" +
+      "/* Tailwind CSS v4 : colle ce bloc dans ton CSS principal, puis utilise bg-wada-" + items[0].slug + ", text-wada-…, etc. */\n" +
+      "@theme {\n" + items.map(function (it) { return "  --color-wada-" + it.slug + ": " + it.hex + ";"; }).join("\n") + "\n}\n\n" +
+      "/* Tailwind CSS v3 : dans tailwind.config.js, theme.extend.colors =\n   { wada: { " + items.map(function (it) { return it.slug + ": '" + it.hex + "'"; }).join(", ") + " } } */\n";
+  }
+  function gplText(n, items) {
+    var pad = function (v) { return ("  " + v).slice(-3); };
+    return "GIMP Palette\nName: Sanzo Wada n° " + n + "\nColumns: " + items.length + "\n#\n" +
+      items.map(function (it) { var p = rgb(it.hex); return pad(p[0]) + " " + pad(p[1]) + " " + pad(p[2]) + "\t" + it.role + " (" + it.pct + " %) " + it.hex.toUpperCase(); }).join("\n") + "\n";
+  }
   function nameOf(hex) {
     var l = lch(hex), L = l[0], C = l[1], H = l[2];
     if (C < 0.03) return L > 0.92 ? "blanc" : L < 0.25 ? "noir" : L > 0.7 ? "gris clair" : L < 0.45 ? "gris foncé" : "gris";
@@ -96,6 +171,7 @@
   }
   var PROPS = { 2: [65, 35], 3: [60, 30, 10], 4: [50, 25, 15, 10] };
   function rolesOf(n) { return n === 2 ? ["Dominante", "Contraste"] : n === 3 ? ["Dominante", "Secondaire", "Accent"] : ["Dominante", "Secondaire", "Complément", "Accent"]; }
+  function slugsOf(n) { return n === 2 ? ["dominante", "contraste"] : n === 3 ? ["dominante", "secondaire", "accent"] : ["dominante", "secondaire", "complement", "accent"]; }
   var SCENES = ["interieur", "mode", "graphisme"];
 
   /* ---------- lien partageable : l'état tient dans le hash ----------
@@ -110,7 +186,7 @@
   }
 
   /* ---------- état ---------- */
-  var state = { seed: "#1448c8", seed2: null, multi: false, target: 2, size: 0, substitute: true, transpose: false, sel: 0, order: null, scene: "interieur", dictSize: 0, list: [], wantN: 0, wantOrder: null };
+  var state = { seed: "#1448c8", seed2: null, multi: false, target: 2, size: 0, substitute: true, transpose: false, sel: 0, order: null, scene: "interieur", dictSize: 0, list: [], wantN: 0, wantOrder: null, light: 6500, vision: "normale" };
   try {
     var saved = JSON.parse(localStorage.getItem("accords-wada") || "null");
     if (saved && /^#[0-9a-f]{6}$/i.test(saved.seed)) { state.seed = saved.seed.toLowerCase(); state.size = saved.size || 0; state.scene = saved.scene || "interieur"; }
@@ -124,16 +200,21 @@
     state.wantN = k.n; state.wantOrder = k.order;
   }
   var link = readHash(location.hash); if (link) takeLink(link);
-  function shareHash() {
-    var cur = current(), p = ["c=" + state.seed.slice(1)];
-    if (state.multi && state.seed2) p.push("c2=" + state.seed2.slice(1));
-    if (cur) p.push("n=" + cur.a.n);
-    if (cur && state.order) p.push("o=" + state.order.join("."));
-    if (state.size) p.push("t=" + state.size);
-    if (!state.substitute) p.push("ex=0");
-    if (state.transpose) p.push("tr=1");
-    if (state.scene !== "interieur") p.push("sc=" + state.scene);
+  // Sérialise un état lu par readHash (ou l'état courant) : sert aussi à normaliser les liens importés.
+  function hashOf(k) {
+    var p = ["c=" + k.seed.slice(1)];
+    if (k.seed2) p.push("c2=" + k.seed2.slice(1));
+    if (k.n) p.push("n=" + k.n);
+    if (k.n && k.order) p.push("o=" + k.order.join("."));
+    if (k.size) p.push("t=" + k.size);
+    if (!k.substitute) p.push("ex=0");
+    if (k.transpose) p.push("tr=1");
+    if (k.scene && k.scene !== "interieur") p.push("sc=" + k.scene);
     return "#" + p.join("&");
+  }
+  function shareHash() {
+    var cur = current();
+    return hashOf({ seed: state.seed, seed2: state.multi ? state.seed2 : null, n: cur ? cur.a.n : 0, order: state.order, size: state.size, substitute: state.substitute, transpose: state.transpose, scene: state.scene });
   }
   function shareUrl() { return location.href.split("#")[0] + shareHash(); }
   function updateLink() { try { history.replaceState(null, "", shareHash()); } catch (e) {} }
@@ -214,7 +295,7 @@
     $("detailLabel").textContent = "Sanzo Wada n° " + a.n + " · correspondance " + a.fid + (a.two ? " (écarts " + (a.d1 * 100).toFixed(1) + " et " + (a.d2 * 100).toFixed(1) + ")" : " (écart " + (a.d * 100).toFixed(1) + ")");
     $("detailTitle").textContent = cs.map(nameOf).join(" · ");
     var big = $("bigsw"); big.textContent = "";
-    cs.forEach(function (c, i) { var t = readableOn(c); big.appendChild(el("div", { style: "background:" + c + ";color:" + t.c + ";flex:" + parts[i] }, [document.createTextNode(parts[i] + " %")])); });
+    cs.forEach(function (c, i) { var s = sim(c), t = readableOn(s); big.appendChild(el("div", { style: "background:" + s + ";color:" + t.c + ";flex:" + parts[i] }, [document.createTextNode(parts[i] + " %")])); });
     var roles = rolesOf(cs.length);
     var rows = $("rows"); rows.textContent = "";
     cs.forEach(function (c, i) {
@@ -236,6 +317,20 @@
     });
     $("out").textContent = exportText("css");
     renderScene();
+    updateFav(); recordHistory();
+  }
+  function sim(c) { return state.light === 6500 && state.vision === "normale" ? c : simulate(c, state.light, state.vision); }
+  function renderSimNotes(cs) {
+    var bits = [];
+    if (state.light !== 6500) bits.push("Aperçu sous lumière " + (state.light === 2700 ? "chaude (2700 K)" : "neutre (4000 K)") + " : approximation, l'œil compense en partie la teinte de la lampe.");
+    if (state.vision !== "normale") bits.push("Aperçu en " + CVD_NAMES[state.vision] + ".");
+    if (bits.length) bits.push("Les valeurs, les copies et la planche restent celles de l'accord.");
+    $("simHint").textContent = bits.join(" ");
+    var conf = confusions(cs), byType = {};
+    conf.forEach(function (x) { (byType[x.k] = byType[x.k] || []).push(nameOf(x.a) + " " + x.a.toUpperCase() + " et " + nameOf(x.b) + " " + x.b.toUpperCase()); });
+    $("cvdHint").textContent = conf.length
+      ? "Attention : " + Object.keys(byType).map(function (k) { return "en " + CVD_NAMES[k] + ", " + byType[k].join(" ; ") + " se confondent"; }).join(". ") + ". Ne compte pas sur la seule couleur pour les distinguer."
+      : "Daltonisme : toutes les couleurs restent distinctes en protanopie, deutéranopie et tritanopie.";
   }
 
   function exportText(kind) {
@@ -249,7 +344,7 @@
         cs.map(function (c, i) { var v = values(c); return [roles[i], parts[i], v.hex, v.rgb, v.hsl, v.oklch, v.cmjn, v.lrv, nameOf(c)].join("\t"); }).join("\n") +
         "\n\nSanzo Wada n° " + n + " · hex : cibles HexPot · CMJN sans profil ICC · LRV estimé depuis l'écran";
     }
-    var names = cs.length === 2 ? ["dominante", "contraste"] : cs.length === 3 ? ["dominante", "secondaire", "accent"] : ["dominante", "secondaire", "complement", "accent"];
+    var names = slugsOf(cs.length);
     return "/* Sanzo Wada n° " + n + " — " + parts.join("/") + " */\n:root {\n" + cs.map(function (c, i) { return "  --wada-" + names[i] + ": " + c + ";"; }).join("\n") + "\n}";
   }
   function doCopy(text, msg) {
@@ -267,7 +362,7 @@
 
   /* ---------- mises en situation ---------- */
   function shade(hex, dL) { var l = lch(hex); return fromLch(Math.max(0, Math.min(1, l[0] + dL)), l[1], l[2]); }
-  function sceneOf(scene, cs, n) {
+  function sceneOf(scene, cs, n, labels) {
     var A = cs[0], B = cs[1], C = cs[2] || cs[1], D = cs[3] || cs[2] || cs[0], svg, hint;
     if (scene === "interieur") {
       hint = "Mur dans la dominante, canapé en secondaire, coussins et objets en accent.";
@@ -303,13 +398,14 @@
         '<rect x="300" y="160" width="60" height="60" fill="' + D + '"/>' +
         '<text x="32" y="210" font-family="Shippori Mincho, Georgia, serif" font-weight="700" font-size="58" fill="' + title + '">配色</text>' +
         '<text x="32" y="252" font-family="Zen Kaku Gothic New, sans-serif" font-weight="700" font-size="22" fill="' + title + '">Accord n° ' + n + '</text>' +
-        '<text x="32" y="300" font-family="IBM Plex Mono, monospace" font-size="12" fill="' + t + '">' + cs.join("  ").toUpperCase() + '</text></svg>';
+        '<text x="32" y="300" font-family="IBM Plex Mono, monospace" font-size="12" fill="' + t + '">' + (labels || cs).join("  ").toUpperCase() + '</text></svg>';
     }
     return { svg: svg, hint: hint };
   }
   function renderScene() {
-    var cur = current(), s = sceneOf(state.scene, cur.colors, cur.a.n);
+    var cur = current(), s = sceneOf(state.scene, cur.colors.map(sim), cur.a.n, cur.colors);
     $("scene").innerHTML = s.svg; $("sceneHint").textContent = s.hint;
+    renderSimNotes(cur.colors);
     updateLink();
   }
 
@@ -424,6 +520,8 @@
   }
   seg("sizeSeg", "size", function () { state.sel = 0; state.order = null; refresh(); });
   seg("sceneSeg", "scene", renderScene);
+  seg("lightSeg", "light", renderDetail);
+  seg("visionSeg", "vision", renderDetail);
   seg("dictSeg", "dictSize", renderDict);
   seg("targetSeg", "target", function () {});
 
@@ -528,6 +626,141 @@
     });
   }
 
+  /* ---------- exports logiciels ---------- */
+  function download(name, data, type) {
+    var b = new Blob([data], { type: type || "text/plain;charset=utf-8" }), u = URL.createObjectURL(b), l = el("a", { href: u, download: name });
+    document.body.appendChild(l); l.click(); l.remove(); setTimeout(function () { URL.revokeObjectURL(u); }, 4000);
+  }
+  function exportItems() {
+    var cs = current().colors, roles = rolesOf(cs.length), slugs = slugsOf(cs.length), parts = PROPS[cs.length];
+    return cs.map(function (c, i) { return { hex: c.toLowerCase(), role: roles[i], slug: slugs[i], pct: parts[i], name: nameOf(c) }; });
+  }
+  document.querySelectorAll("[data-export]").forEach(function (b) {
+    b.addEventListener("click", function () {
+      var k = b.getAttribute("data-export"), n = current().a.n, items = exportItems(), base = "accord-wada-" + n;
+      if (k === "ase") download(base + ".ase", aseBytes("Sanzo Wada n° " + n, items), "application/octet-stream");
+      if (k === "tokens") download(base + ".tokens.json", tokensText(n, items), "application/json");
+      if (k === "tailwind") download(base + ".tailwind.css", tailwindText(n, items), "text/css");
+      if (k === "gpl") download(base + ".gpl", gplText(n, items));
+      $("toast").textContent = { ase: "Nuancier Adobe téléchargé : ouvre-le depuis le panneau Nuancier (Illustrator, Photoshop, InDesign).", tokens: "Tokens téléchargés au format W3C Design Tokens.", tailwind: "Thème Tailwind téléchargé (v4, avec l'équivalent v3 en commentaire).", gpl: "Palette GIMP / Inkscape téléchargée." }[k];
+    });
+  });
+
+  /* ---------- projets, favoris, historique ----------
+     Stockés dans localStorage ("accords-wada-projets") ; export/import JSON pour changer de poste ou archiver. */
+  var STORE_KEY = "accords-wada-projets", storeOk = true;
+  function newId() { return Date.now().toString(36) + Math.random().toString(36).slice(2, 6); }
+  function freshStore() { var id = newId(); return { v: 1, current: id, projects: [{ id: id, name: "Mon premier projet", items: [] }], history: [] }; }
+  var store = (function () {
+    try {
+      var s = JSON.parse(localStorage.getItem(STORE_KEY) || "null");
+      if (s && s.v === 1 && Array.isArray(s.projects) && s.projects.length) { if (!Array.isArray(s.history)) s.history = []; return s; }
+    } catch (e) { storeOk = false; }
+    return freshStore();
+  })();
+  function persist() { try { localStorage.setItem(STORE_KEY, JSON.stringify(store)); storeOk = true; } catch (e) { storeOk = false; } }
+  function project() { return store.projects.find(function (p) { return p.id === store.current; }) || store.projects[0]; }
+  // Deux liens désignent le même accord s'ils ne diffèrent que par la scène ou le filtre de taille.
+  function keyOf(hash) { var k = readHash(hash); return k ? [k.seed, k.seed2 || "", k.n, (k.order || []).join("."), k.transpose ? 1 : 0, k.substitute ? 1 : 0].join("|") : hash; }
+  function snapshot() { var cur = current(); return { hash: shareHash(), n: cur.a.n, colors: cur.colors.slice() }; }
+  function inProject() { var key = keyOf(shareHash()); return project().items.findIndex(function (it) { return keyOf(it.hash) === key; }); }
+  function updateFav() { $("fav").setAttribute("aria-pressed", String(inProject() >= 0)); }
+  var histTimer = 0;
+  function recordHistory() {
+    clearTimeout(histTimer);
+    histTimer = setTimeout(function () {
+      if (!current()) return;
+      var s = snapshot(), key = keyOf(s.hash);
+      store.history = [s].concat(store.history.filter(function (h) { return keyOf(h.hash) !== key; })).slice(0, 12);
+      persist(); renderHistory();
+    }, 1500);
+  }
+  function openHash(h) {
+    if (location.hash !== h) location.hash = h;
+    $("detail").scrollIntoView({ behavior: matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth" });
+  }
+  function accordItem(it, opts) {
+    var parts = PROPS[it.colors.length] || [];
+    var open = el("button", { type: "button", class: "saved-open", "aria-label": "Ouvrir l'accord n° " + it.n + " : " + it.colors.join(", ") }, [
+      el("span", { class: "sw" }, it.colors.map(function (c, j) { return el("i", { style: "background:" + c + ";flex:" + (parts[j] || 1) }); })),
+      el("span", { class: "num", text: "n° " + it.n })]);
+    open.addEventListener("click", function () { openHash(it.hash); });
+    var kids = [open];
+    if (opts.note) {
+      var note = el("input", { class: "textin", type: "text", maxlength: "160", placeholder: "Note : pièce, client, matière…", "aria-label": "Note pour l'accord n° " + it.n });
+      note.value = it.note || "";
+      note.addEventListener("change", function () { it.note = note.value.trim(); persist(); });
+      kids.push(note);
+    }
+    if (opts.remove) { var rm = el("button", { type: "button", class: "mini", text: "Retirer", "aria-label": "Retirer l'accord n° " + it.n + " du projet" }); rm.addEventListener("click", opts.remove); kids.push(rm); }
+    return el("li", { class: "saved-item" }, kids);
+  }
+  function renderProjects() {
+    var sel = $("projSel"), p = project(); sel.textContent = "";
+    store.projects.forEach(function (q) { var o = el("option", { value: q.id, text: q.name + " (" + q.items.length + ")" }); if (q.id === p.id) o.selected = true; sel.appendChild(o); });
+    $("projName").value = p.name;
+    var ul = $("saved"); ul.textContent = "";
+    p.items.forEach(function (it, i) { ul.appendChild(accordItem(it, { note: true, remove: function () { p.items.splice(i, 1); persist(); renderProjects(); updateFav(); } })); });
+    $("savedHint").textContent = (p.items.length ? "" : "Aucun accord dans ce projet. Ouvre un accord puis clique « Garder dans le projet ». ") +
+      (storeOk ? "" : "La mémoire du navigateur est indisponible ici : exporte ton projet en JSON pour ne rien perdre.");
+  }
+  function renderHistory() {
+    var ul = $("history"); ul.textContent = "";
+    store.history.forEach(function (it) { ul.appendChild(accordItem(it, {})); });
+    $("historyCount").textContent = store.history.length;
+  }
+  function slug(s) { return s.toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "").replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "") || "projet"; }
+  // Import : on ne garde que des données vérifiées (liens relus et resérialisés, hex valides, textes bornés).
+  function cleanItems(arr) {
+    return (Array.isArray(arr) ? arr : []).map(function (it) {
+      var k = it && typeof it.hash === "string" ? readHash(it.hash) : null; if (!k || !k.n) return null;
+      var colors = Array.isArray(it.colors) ? it.colors.map(function (c) { return typeof c === "string" ? parseHex(c) : null; }) : [];
+      if (colors.length < 2 || colors.length > 4 || colors.indexOf(null) >= 0) return null;
+      return { hash: hashOf(k), n: k.n, colors: colors, note: typeof it.note === "string" ? it.note.slice(0, 160) : "", added: typeof it.added === "string" ? it.added.slice(0, 40) : "" };
+    }).filter(Boolean);
+  }
+
+  $("fav").addEventListener("click", function () {
+    var p = project(), i = inProject(), t = $("toast");
+    if (i >= 0) { p.items.splice(i, 1); t.textContent = "Accord retiré de « " + p.name + " »."; }
+    else { var s = snapshot(); s.note = ""; s.added = new Date().toISOString(); p.items.unshift(s); t.textContent = "Accord gardé dans « " + p.name + " »."; }
+    persist(); updateFav(); renderProjects();
+  });
+  $("projSel").addEventListener("change", function (e) { store.current = e.target.value; persist(); renderProjects(); updateFav(); });
+  $("projName").addEventListener("change", function (e) {
+    var v = e.target.value.trim(); if (!v) { e.target.value = project().name; return; }
+    project().name = v.slice(0, 60); persist(); renderProjects();
+  });
+  $("projNew").addEventListener("click", function () {
+    var id = newId(); store.projects.push({ id: id, name: "Projet " + (store.projects.length + 1), items: [] }); store.current = id;
+    persist(); renderProjects(); updateFav(); $("projName").focus(); $("projName").select();
+  });
+  $("projDelete").addEventListener("click", function () {
+    var p = project();
+    if (!confirm("Supprimer le projet « " + p.name + " » et ses " + p.items.length + " accord(s) ? Exporte-le d'abord si tu veux le garder.")) return;
+    store.projects = store.projects.filter(function (q) { return q !== p; });
+    if (!store.projects.length) store.projects = freshStore().projects;
+    store.current = store.projects[0].id; persist(); renderProjects(); updateFav();
+    $("toast").textContent = "Projet « " + p.name + " » supprimé.";
+  });
+  $("projExport").addEventListener("click", function () {
+    var p = project();
+    download(slug(p.name) + ".accords-wada.json", JSON.stringify({ format: "accords-wada-projet", version: 1, name: p.name, exported: new Date().toISOString(), items: p.items }, null, 2) + "\n", "application/json");
+    $("toast").textContent = "Projet « " + p.name + " » exporté.";
+  });
+  $("projImport").addEventListener("change", function (e) {
+    var f = e.target.files[0], t = $("toast"); e.target.value = ""; if (!f) return;
+    f.text().then(function (txt) {
+      var d = JSON.parse(txt); if (!d || d.format !== "accords-wada-projet") throw new Error("format");
+      var items = cleanItems(d.items); if (!items.length) throw new Error("vide");
+      var name = (typeof d.name === "string" && d.name.trim() ? d.name.trim().slice(0, 60) : "Projet importé");
+      if (store.projects.some(function (q) { return q.name === name; })) name = (name + " (import)").slice(0, 60);
+      var id = newId(); store.projects.push({ id: id, name: name, items: items }); store.current = id;
+      persist(); renderProjects(); updateFav();
+      t.textContent = "Projet « " + name + " » importé : " + items.length + " accord" + (items.length > 1 ? "s" : "") + ".";
+    }).catch(function () { t.textContent = "Ce fichier n'est pas un projet Accords Wada valide."; });
+  });
+
   function start() {
     $("substitute").checked = state.substitute; $("transpose").checked = state.transpose;
     setPressed("sizeSeg", state.size); setPressed("sceneSeg", state.scene);
@@ -542,5 +775,6 @@
     var k = readHash(location.hash); if (!k) return;
     takeLink(k); document.querySelectorAll(".chip.on, .chip.on2").forEach(function (c) { c.classList.remove("on", "on2"); }); start();
   });
+  renderProjects(); renderHistory();
   start();
 })();
