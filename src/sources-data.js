@@ -1,4 +1,4 @@
-/* Accords Wada — sources d'accords autres que Sanzo Wada (window.WADA_SOURCES).
+/* La Chromathèque de Man Mbaï Likol — sources d'accords autres que Sanzo Wada (window.WADA_SOURCES).
    Ces palettes sont des INTERPRÉTATIONS MML : les teintes historiques n'ont pas de valeur hex exacte et les sources
    varient d'un texte à l'autre. Chaque accord : { jp?, fr, en, g (groupe), colors }. Wada reste la source par défaut. */
 (function (root) {

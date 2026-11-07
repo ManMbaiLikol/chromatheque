@@ -1,4 +1,4 @@
-/* Accords Wada — mises en situation vectorielles, une par métier (window.WadaScenes).
+/* La Chromathèque de Man Mbaï Likol — mises en situation vectorielles, une par métier (window.WadaScenes).
    Dessins originaux MML (aucun modèle tiers). Chaque scène : SVG 480 × 340, couleurs de l'accord dans l'ordre
    des proportions (A dominante, B secondaire, Cc accent, D complément). Fonctions pures : dans Node, require. */
 (function (root, factory) {
@@ -15,8 +15,8 @@
   function r(x, y, w, h, f, extra) { return '<rect x="' + x + '" y="' + y + '" width="' + w + '" height="' + h + '" fill="' + f + '"' + (extra || "") + "/>"; }
   function ci(x, y, rr, f, extra) { return '<circle cx="' + x + '" cy="' + y + '" r="' + rr + '" fill="' + f + '"' + (extra || "") + "/>"; }
   function p(d, f, extra) { return '<path d="' + d + '" fill="' + f + '"' + (extra || "") + "/>"; }
-  function tx(x, y, s, size, f, font, extra) { return '<text x="' + x + '" y="' + y + '" font-size="' + size + '" fill="' + f + '" font-family="' + (font || "Zen Kaku Gothic New, sans-serif") + '"' + (extra || "") + ">" + esc(s) + "</text>"; }
-  var SERIF = "Shippori Mincho, Georgia, serif", MONO = "IBM Plex Mono, monospace";
+  function tx(x, y, s, size, f, font, extra) { return '<text x="' + x + '" y="' + y + '" font-size="' + size + '" fill="' + f + '" font-family="' + (font || "Plus Jakarta Sans, sans-serif") + '"' + (extra || "") + ">" + esc(s) + "</text>"; }
+  var SERIF = "Fraunces, Shippori Mincho, Georgia, serif", MONO = "IBM Plex Mono, monospace";
   function lines(x, y, w, n, f, gap) { var o = ""; for (var i = 0; i < n; i++) o += r(x, y + i * (gap || 9), i === n - 1 ? w * 0.6 : w, 4, f, ' rx="2" opacity=".75"'); return o; }
 
   var DRAW = {
@@ -53,7 +53,7 @@
     packaging: function (A, B, Cc, D) {
       return r(0, 0, 480, 340, N.bg) + r(0, 282, 480, 58, N.floor) + r(0, 280, 480, 4, N.line) +
         p("M70 92 L120 66 L272 66 L222 92 Z", sh(A, 0.08)) + r(70, 92, 152, 190, A) + p("M222 92 L272 66 L272 256 L222 282 Z", sh(A, -0.12)) +
-        r(70, 150, 152, 64, B) + p("M222 150 L272 124 L272 188 L222 214 Z", sh(B, -0.12)) + tx(146, 188, "WADA", 22, ink(B), "Shippori Mincho, Georgia, serif", ' text-anchor="middle" font-weight="700"') +
+        r(70, 150, 152, 64, B) + p("M222 150 L272 124 L272 188 L222 214 Z", sh(B, -0.12)) + tx(146, 188, "WADA", 22, ink(B), "Bricolage Grotesque, sans-serif", ' text-anchor="middle" font-weight="700"') +
         ci(146, 120, 14, Cc) + r(90, 236, 112, 4, ink(A), ' opacity=".5"') + r(90, 246, 70, 4, ink(A), ' opacity=".5"') +
         r(316, 82, 44, 26, Cc, ' rx="5"') + r(324, 106, 28, 30, sh(B, -0.08)) + r(300, 132, 76, 150, B, ' rx="20"') + r(300, 180, 76, 62, D) + ci(338, 211, 12, Cc) +
         r(396, 210, 56, 72, D, ' rx="6"') + r(396, 210, 56, 18, Cc, ' rx="6"') + r(404, 240, 40, 4, ink(D), ' opacity=".6"');

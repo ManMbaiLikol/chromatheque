@@ -2,25 +2,29 @@
    Esprit : planche d'atelier, typographie éditoriale, aplats de couleur. Surfaces en gris neutre (jamais teintées)
    pour juger les couleurs sans biais ; seule la couleur de départ sert d'accent (focus, sélection). */
 :root {
-  --bg: #f1f1ef; --surface: #fafaf9; --sunk: #e8e8e5; --line: #d9d9d5; --ink: #1b1b19; --muted: #5d5d58;
+  --bg: #f3f3f1; --surface: #ffffff; --sunk: #e9e9e6; --line: #d9d9d5; --ink: #1b1b19; --muted: #5d5d58;
   --accent: var(--accent-l, #1448c8);
-  --display: "Shippori Mincho", "Hiragino Mincho ProN", "Yu Mincho", Georgia, serif;
-  --body: "Zen Kaku Gothic New", "Hiragino Sans", "Segoe UI", system-ui, sans-serif;
+  --display: "Bricolage Grotesque", "Shippori Mincho", "Hiragino Sans", system-ui, sans-serif;
+  --serif: "Fraunces", "Shippori Mincho", Georgia, serif;
+  --body: "Plus Jakarta Sans", "Hiragino Sans", "Segoe UI", system-ui, sans-serif;
   --mono: "IBM Plex Mono", ui-monospace, "SFMono-Regular", Menlo, monospace;
-  --r: 6px; --r-lg: 14px; --shadow: 0 1px 2px rgba(0,0,0,.05), 0 6px 18px rgba(0,0,0,.05);
+  --r: 8px; --r-lg: 20px; --dot: rgba(0,0,0,.07); --c1: #1448c8; --c2: #6c2b11; --c3: #f2ad78; --c4: #0057ba; --shadow: 0 1px 2px rgba(0,0,0,.05), 0 6px 18px rgba(0,0,0,.05);
 }
-@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) { --bg: #161615; --surface: #1f1f1d; --sunk: #1a1a19; --line: #353532; --ink: #ecece8; --muted: #a8a8a1; --accent: var(--accent-d, #6f93f0); --shadow: 0 1px 2px rgba(0,0,0,.4); color-scheme: dark } }
-:root[data-theme="dark"] { --bg: #161615; --surface: #1f1f1d; --sunk: #1a1a19; --line: #353532; --ink: #ecece8; --muted: #a8a8a1; --accent: var(--accent-d, #6f93f0); --shadow: 0 1px 2px rgba(0,0,0,.4); color-scheme: dark }
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) { --bg: #161615; --surface: #1f1f1d; --sunk: #1a1a19; --line: #353532; --ink: #ecece8; --muted: #a8a8a1; --accent: var(--accent-d, #6f93f0); --dot: rgba(255,255,255,.06); --shadow: 0 1px 2px rgba(0,0,0,.4); color-scheme: dark } }
+:root[data-theme="dark"] { --bg: #161615; --surface: #1f1f1d; --sunk: #1a1a19; --line: #353532; --ink: #ecece8; --muted: #a8a8a1; --accent: var(--accent-d, #6f93f0); --dot: rgba(255,255,255,.06); --shadow: 0 1px 2px rgba(0,0,0,.4); color-scheme: dark }
 * { box-sizing: border-box }
 [hidden] { display: none !important }
+html, body { overflow-x: clip }
 html { scroll-padding-top: 76px }
 @media (prefers-reduced-motion: no-preference) { html { scroll-behavior: smooth } }
-body { margin: 0; background: var(--bg); color: var(--ink); font: 400 15px/1.6 var(--body); }
+body { margin: 0; background-color: var(--bg); background-image: radial-gradient(var(--dot) 1px, transparent 1.2px); background-size: 22px 22px; color: var(--ink); font: 400 15px/1.6 var(--body); }
 .wrap { max-width: 1200px; margin: 0 auto; padding-block: 28px 72px; padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); display: grid; gap: 64px; }
 h1, h2, h3 { font-family: var(--display); font-weight: 700; margin: 0; text-wrap: balance; letter-spacing: .01em }
-h1 { font-size: clamp(40px, 7vw, 84px); line-height: .98; letter-spacing: -.01em }
-h1 em { font-style: normal; display: block; color: var(--muted) }
-h2 { font-size: clamp(24px, 3vw, 32px); line-height: 1.12 }
+h1 { font-size: clamp(34px, 5vw, 72px); line-height: .98; letter-spacing: -.01em; max-width: 100% }
+@supports (font-size: 1cqi) { h1 { font-size: clamp(36px, 12cqi, 124px) } }
+h1 span, h1 em { display: block; white-space: nowrap }
+h1 em { font-style: normal; color: var(--muted) }
+h2 { font-size: clamp(26px, 3.4vw, 40px); line-height: 1.08 }
 p { margin: 0 }
 .label { font: 700 11px/1.3 var(--body); letter-spacing: .14em; text-transform: uppercase; color: var(--muted) }
 .hint { font-size: 12.5px; color: var(--muted) }
@@ -35,6 +39,8 @@ button { font: inherit; color: inherit; cursor: pointer }
 .site { position: sticky; top: 0; z-index: 20; background: var(--bg); background: color-mix(in srgb, var(--bg) 88%, transparent); backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px); border-bottom: 1px solid var(--line) }
 .site-in { max-width: 1200px; margin: 0 auto; padding: 10px max(16px, env(safe-area-inset-right, 0px)) 10px max(16px, env(safe-area-inset-left, 0px)); display: flex; align-items: center; gap: 16px }
 .brand { display: inline-flex; align-items: center; gap: 10px; color: var(--ink); text-decoration: none; font: 700 18px/1 var(--display); white-space: nowrap }
+.brand-name { display: grid; gap: 3px; line-height: 1 }
+.brand-name small { font: 500 10.5px/1 var(--body); letter-spacing: .08em; text-transform: uppercase; color: var(--muted) }
 .brand-mark { display: inline-grid; grid-template-columns: 2fr 1fr; grid-template-rows: 1fr 1fr; width: 26px; height: 26px; border-radius: 4px; overflow: hidden; border: 1px solid var(--line) }
 .brand-mark i:first-child { grid-row: span 2 }
 .nav { display: flex; gap: 4px; margin-left: auto; overflow-x: auto; scrollbar-width: none }
@@ -44,25 +50,60 @@ button { font: inherit; color: inherit; cursor: pointer }
 .site-tools { display: flex; gap: 8px; align-items: center }
 @media (max-width: 900px) { .nav { display: none } .site-tools { margin-left: auto } }
 
-/* En-tête : texte et composition en aplats */
-.hero { display: grid; grid-template-columns: minmax(0, 1.25fr) minmax(0, 1fr) auto; gap: 24px 48px; align-items: center; padding-top: 24px }
-.hero-text { display: grid; gap: 22px }
-.lede { max-width: 58ch; color: var(--muted); font-size: 16.5px }
-.hero-cta { display: flex; flex-wrap: wrap; gap: 10px }
-.hero-art { position: relative; display: grid; grid-template-columns: repeat(6, 1fr); grid-template-rows: repeat(6, 1fr); aspect-ratio: 1; width: 100%; max-width: 420px; justify-self: center; border-radius: var(--r-lg); overflow: hidden; box-shadow: var(--shadow) }
+/* Bandeau défilant (décoratif) */
+.ticker { overflow: hidden; background: var(--sunk); border-bottom: 1px solid var(--line); font: 500 13px/1 var(--body); white-space: nowrap }
+.ticker-track { display: inline-flex; gap: 22px; align-items: center; padding: 10px 0; animation: ticker 48s linear infinite }
+.ticker-track span:nth-child(4n+1) { font-weight: 700 }
+.ticker-track i { font-style: normal; color: var(--muted) }
+@keyframes ticker { to { transform: translateX(-50%) } }
+@media (prefers-reduced-motion: reduce) { .ticker-track { animation: none } }
+
+/* Barre de réglages en cours, façon barre de filtres */
+.toolbar { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px; padding: 6px; background: var(--sunk); border-radius: var(--r-lg) }
+.tool { display: flex; align-items: center; gap: 10px; min-width: 0; padding: 10px 14px; background: var(--surface); border-radius: 14px; color: var(--ink); text-decoration: none; font-size: 14px; transition: box-shadow .2s }
+.tool:hover { box-shadow: var(--shadow) }
+.tool-k { color: var(--muted); font-size: 12.5px }
+.tool b { font-weight: 700; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap }
+.tool-sw { width: 18px; height: 18px; border-radius: 50%; border: 1px solid var(--line); flex: none }
+.chev { margin-left: auto; color: var(--muted) }
+@media (max-width: 640px) { .toolbar { grid-template-columns: 1fr } }
+
+/* En-tête : titre géant centré, carte « accord du moment » */
+.hero { position: relative; display: grid; grid-template-columns: minmax(0, 1fr) 290px; gap: 32px; align-items: start; padding: 8px 0 24px }
+/* Aura aux couleurs de l'accord en cours, derrière l'en-tête seulement (hors des zones où l'on juge les couleurs) */
+.hero::before { content: ""; position: absolute; z-index: 0; top: -120px; bottom: -40px; left: 50%; width: 100vw; transform: translateX(-50%); pointer-events: none;
+  background: radial-gradient(38% 55% at 12% 30%, var(--c1), transparent 70%), radial-gradient(34% 50% at 88% 22%, var(--c2), transparent 70%),
+    radial-gradient(40% 50% at 78% 92%, var(--c3), transparent 70%), radial-gradient(36% 46% at 24% 96%, var(--c4), transparent 70%);
+  opacity: .3; animation: aura 22s ease-in-out infinite alternate; will-change: transform;
+  -webkit-mask-image: linear-gradient(to bottom, #000 60%, transparent); mask-image: linear-gradient(to bottom, #000 60%, transparent) }
+@keyframes aura { 0% { transform: translateX(-50%) scale(1) } 50% { transform: translateX(-48%) scale(1.06) rotate(1deg) } 100% { transform: translateX(-52%) scale(1.03) rotate(-1deg) } }
+.hero-card { position: relative; z-index: 1 }
+.hero-text { display: grid; gap: 18px; justify-items: center; text-align: center; padding: 28px 0 8px; container-type: inline-size; min-width: 0; position: relative; z-index: 1 }
+.kicker { font-size: 14px; color: var(--muted) }
+.tagline { font: 500 clamp(18px, 2.2vw, 26px)/1.3 var(--display); font-style: italic; color: var(--ink) }
+.tagline::before, .tagline::after { content: ""; display: inline-block; width: 28px; height: 2px; background: var(--accent); vertical-align: middle; margin: 0 12px }
+.lede b { color: var(--ink); font-weight: 700 }
+.lede { max-width: 56ch; color: var(--muted); font-size: 16.5px }
+.hero-cta { display: flex; flex-wrap: wrap; gap: 10px; justify-content: center }
+.hero-card { background: var(--surface); border-radius: var(--r-lg); padding: 14px; display: grid; gap: 10px; box-shadow: var(--shadow) }
+.hero-card-t { font: 700 16px/1.35 var(--display) }
+.more { color: var(--ink); font-weight: 700; font-size: 14px; text-decoration: underline; text-decoration-color: var(--accent); text-decoration-thickness: 2px; text-underline-offset: 4px; justify-self: start }
+.hero-art { position: relative; display: grid; grid-template-columns: repeat(6, 1fr); grid-template-rows: repeat(6, 1fr); aspect-ratio: 1; width: 100%; border-radius: 12px; overflow: hidden }
 .hero-art i { display: block; transition: background-color .5s ease }
 .hero-art b { position: absolute; width: 30%; aspect-ratio: 1; border-radius: 50%; left: 44%; top: 40%; transition: background-color .5s ease; box-shadow: 0 0 0 6px rgba(255,255,255,.18) }
-.kanji { font-family: var(--display); font-size: 15px; color: var(--muted); writing-mode: vertical-rl; letter-spacing: .35em; align-self: stretch; text-align: center; border-left: 1px solid var(--line); padding-left: 14px }
-@media (max-width: 960px) { .hero { grid-template-columns: 1fr } .kanji { display: none } .hero-art { max-width: 360px; justify-self: start } }
+@media (max-width: 1060px) { .hero { grid-template-columns: 1fr } .hero-card { grid-template-columns: 120px minmax(0, 1fr); align-items: center } .hero-card .hero-art { grid-row: span 3 } }
+@media (max-width: 420px) { .hero-card { grid-template-columns: 88px minmax(0, 1fr) } }
 
 /* Têtes d'étape : grand numéro au trait */
 .step-head { display: flex; gap: 16px; align-items: flex-end }
-.step { font: 700 clamp(44px, 5vw, 64px)/0.8 var(--display); color: var(--line); letter-spacing: -.02em; flex: none }
-@supports (-webkit-text-stroke: 1px black) { .step { color: transparent; -webkit-text-stroke: 1.2px var(--muted) } }
+.step { font: 700 clamp(40px, 4.4vw, 56px)/0.8 var(--display); color: var(--line); letter-spacing: -.02em; flex: none }
+@supports (-webkit-background-clip: text) or (background-clip: text) { .step { color: transparent; background: linear-gradient(120deg, var(--c1), var(--c2) 40%, var(--c3) 70%, var(--c4)); -webkit-background-clip: text; background-clip: text } }
 .step-head .label { margin-bottom: 6px }
 
 /* Sources */
 .band { display: grid; gap: 22px }
+.band, .deliver { position: relative; padding-block: 48px; background: var(--sunk); box-shadow: 0 0 0 100vmax var(--sunk); clip-path: inset(0 -100vmax) }
+.band::before, .deliver::before { content: ""; position: absolute; top: 0; left: 50%; width: 100vw; height: 4px; transform: translateX(-50%); background: linear-gradient(90deg, var(--c1) 0 25%, var(--c2) 25% 50%, var(--c3) 50% 75%, var(--c4) 75%) }
 .sources { display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 14px }
 .source { text-align: left; background: var(--surface); border: 1px solid var(--line); border-radius: var(--r-lg); padding: 14px; display: grid; gap: 6px; align-content: start; transition: transform .2s ease, box-shadow .2s ease, border-color .2s }
 .source:hover { transform: translateY(-3px); box-shadow: var(--shadow) }
@@ -167,7 +208,7 @@ button { font: inherit; color: inherit; cursor: pointer }
 .sim > div { display: grid; gap: 6px }
 
 /* Livrer */
-.deliver { display: grid; gap: 20px; border-top: 1px solid var(--line); padding-top: 48px }
+.deliver { display: grid; gap: 20px }
 .deliver-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 14px }
 .dcard { background: var(--surface); border: 1px solid var(--line); border-radius: var(--r-lg); padding: 16px; display: grid; gap: 12px; align-content: start }
 .tablewrap { overflow-x: auto; border: 1px solid var(--line); border-radius: var(--r-lg); background: var(--surface) }
@@ -180,7 +221,7 @@ button { font: inherit; color: inherit; cursor: pointer }
 .vals abbr { text-decoration: none; cursor: help }
 .vdot { display: inline-block; width: 12px; height: 12px; border-radius: 50%; border: 1px solid var(--line); vertical-align: -1px; margin-right: 8px }
 .out { font: 400 12.5px/1.5 var(--mono); background: var(--surface); border: 1px solid var(--line); border-radius: var(--r); padding: 12px; white-space: pre-wrap; overflow-x: auto; margin: 0 }
-.toast { position: fixed; left: 50%; bottom: max(18px, env(safe-area-inset-bottom, 0px)); transform: translateX(-50%); z-index: 40; width: max-content; max-width: calc(100vw - 32px); background: var(--ink); color: var(--bg); padding: 10px 18px; border-radius: 22px; font-size: 13.5px; box-shadow: 0 8px 24px rgba(0,0,0,.18); text-align: center; margin: 0 }
+.toast { position: fixed; left: 50%; bottom: calc(max(16px, env(safe-area-inset-bottom, 0px)) + 66px); transform: translateX(-50%); z-index: 40; width: max-content; max-width: calc(100vw - 32px); background: var(--ink); color: var(--bg); padding: 10px 18px; border-radius: 22px; font-size: 13.5px; box-shadow: 0 8px 24px rgba(0,0,0,.18); text-align: center; margin: 0 }
 .toast:empty { display: none }
 
 /* Projets et favoris */
@@ -235,6 +276,185 @@ select, .textin { font: inherit; font-size: 14px; color: var(--ink); background:
   .card:hover, .source:hover, .btn:hover { transform: none }
 }
 
+
+/* Cartes : grandes cartes blanches, pied séparé « écart → » souligné de la couleur de départ */
+.card, .source { border-color: transparent; box-shadow: 0 1px 2px rgba(0,0,0,.04) }
+.card { padding: 12px; gap: 10px }
+.card .sw { height: 120px; border-radius: 12px }
+.card-foot { display: flex; justify-content: space-between; align-items: center; border-top: 1px solid var(--line); margin: 2px -12px -2px; padding: 10px 12px 0 }
+.source .card-foot { margin: 6px -14px 0; padding: 10px 14px 0 }
+.score { font-size: 12.5px; font-weight: 500; padding-bottom: 3px; border-bottom: 2px solid var(--accent) }
+.arrow { font-size: 18px; line-height: 1; transition: transform .2s ease }
+.card:hover .arrow, .source:hover .arrow { transform: translateX(4px) }
+.card .tag { background: var(--sunk); border-color: transparent }
+.panel, .dcard, .saved-item, .chk, .row { border-color: transparent }
+.panel { box-shadow: 0 1px 2px rgba(0,0,0,.04) }
+.chk.warn { border-color: var(--ink) }
+
+/* Dock flottant */
+.dock { position: fixed; left: 50%; bottom: max(14px, env(safe-area-inset-bottom, 0px)); transform: translateX(-50%); z-index: 35; display: flex; gap: 4px; padding: 5px; background: #1d1d1b; border-radius: 16px; box-shadow: 0 10px 30px rgba(0,0,0,.25) }
+.dock-mark { display: grid; place-items: center; width: 42px; height: 42px; border-radius: 12px; background: #2c2c29 }
+.dock-mark span { display: grid; grid-template-columns: 2fr 1fr; grid-template-rows: 1fr 1fr; width: 22px; height: 22px; border-radius: 4px; overflow: hidden }
+.dock-mark i:first-child { grid-row: span 2 }
+.dock-btn { white-space: nowrap; background: #2c2c29; color: #f3f3f1; border: 0; border-radius: 12px; padding: 0 14px; height: 42px; font-size: 13px; font-weight: 500 }
+.dock-btn:hover { background: #3a3a36 }
+.dock-btn[aria-pressed=true] { background: #f3f3f1; color: #1d1d1b }
+.dock-btn[aria-pressed=true]::before { content: "✓ " }
+.dock :focus-visible { outline-color: #f3f3f1 }
+.foot-in { padding-bottom: 110px }
+.seg.small { flex-wrap: nowrap }
+@media (max-width: 560px) { .dock-btn { padding: 0 10px } .cta-top { display: none } .tagline::before, .tagline::after { display: none } .tool { padding: 8px 12px } }
+@media (prefers-reduced-motion: reduce) { .arrow { transition: none } .card:hover .arrow, .source:hover .arrow { transform: none } }
+
+/* Verre translucide (glassmorphism) : fond dégradé gris doux, reflets de l'accord en cours fixés derrière la page,
+   surfaces en verre dépoli avec liseré clair. « Fond neutre » rend les surfaces opaques pour juger les couleurs. */
+:root { --page: linear-gradient(160deg, #eef0f3 0%, #dfe2e7 55%, #d3d6dc 100%); --glass: rgba(255,255,255,.34); --glass-strong: rgba(255,255,255,.55);
+  --glass-line: rgba(255,255,255,.75); --glass-hi: inset 0 1px 0 rgba(255,255,255,.9), inset 0 -1px 0 rgba(255,255,255,.35); --glass-shadow: 0 12px 32px rgba(28,32,42,.12), 0 2px 6px rgba(28,32,42,.06); --orbs: .26 }
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) { --page: linear-gradient(160deg, #1d1e21 0%, #151618 60%, #101113 100%); --glass: rgba(255,255,255,.055); --glass-strong: rgba(255,255,255,.09);
+  --glass-line: rgba(255,255,255,.14); --glass-hi: inset 0 1px 0 rgba(255,255,255,.12), inset 0 -1px 0 rgba(255,255,255,.04); --glass-shadow: 0 12px 32px rgba(0,0,0,.35); --orbs: .3 } }
+:root[data-theme="dark"] { --page: linear-gradient(160deg, #1d1e21 0%, #151618 60%, #101113 100%); --glass: rgba(255,255,255,.055); --glass-strong: rgba(255,255,255,.09);
+  --glass-line: rgba(255,255,255,.14); --glass-hi: inset 0 1px 0 rgba(255,255,255,.12), inset 0 -1px 0 rgba(255,255,255,.04); --glass-shadow: 0 12px 32px rgba(0,0,0,.35); --orbs: .3 }
+body { background: var(--page) fixed }
+body::before { content: ""; position: fixed; inset: -10%; z-index: -1; pointer-events: none; opacity: var(--orbs);
+  background: radial-gradient(30% 35% at 8% 18%, var(--c1), transparent 70%), radial-gradient(28% 32% at 92% 12%, var(--c2), transparent 70%),
+    radial-gradient(34% 36% at 85% 78%, var(--c3), transparent 70%), radial-gradient(30% 34% at 14% 88%, var(--c4), transparent 70%) }
+body::after { content: ""; position: fixed; inset: 0; z-index: -1; pointer-events: none; background-image: radial-gradient(var(--dot) 1px, transparent 1.2px); background-size: 22px 22px }
+.panel, .card, .source, .tool, .hero-card, .dcard, .chk:not(.note), .row, .saved-item, .tablewrap, .out, .job, .seg, .toolbar, .site, .ticker, .bigsw, .scene svg {
+  background: var(--glass); -webkit-backdrop-filter: blur(18px) saturate(1.4); backdrop-filter: blur(18px) saturate(1.4);
+  border: 1px solid var(--glass-line); box-shadow: var(--glass-hi), var(--glass-shadow) }
+.toolbar { padding: 8px; border-radius: 24px } .tool { box-shadow: var(--glass-hi) }
+.card, .source, .panel, .hero-card, .dcard { border-radius: 24px }
+.site { border-width: 0 0 1px; box-shadow: var(--glass-hi) } .ticker { border-width: 0 0 1px; box-shadow: none }
+.seg, .job, .tool { box-shadow: var(--glass-hi) }
+.band, .deliver { background: rgba(255,255,255,.16); box-shadow: 0 0 0 100vmax rgba(255,255,255,.16) }
+.hexfield, .drop, select, .textin { background: var(--glass-strong); border-color: var(--glass-line) }
+.card .tag, .card-foot { border-color: var(--glass-line) } .card .tag { background: var(--glass-strong) }
+.bigsw { background: none; padding: 0 } .scene svg { padding: 0 }
+.dock { background: rgba(29,29,27,.72); -webkit-backdrop-filter: blur(16px) saturate(1.4); backdrop-filter: blur(16px) saturate(1.4); border: 1px solid rgba(255,255,255,.16) }
+.dock-mark, .dock-btn { background: rgba(255,255,255,.08) } .dock-btn:hover { background: rgba(255,255,255,.16) }
+.chk.warn { border: 1px dashed var(--ink) }
+/* Pas de verre : fond neutre opaque, ou navigateur sans backdrop-filter */
+html.calm body { background: var(--bg) } html.calm body::before, html.calm body::after { display: none }
+html.calm :is(.panel, .card, .source, .tool, .hero-card, .dcard, .chk:not(.note), .row, .saved-item, .tablewrap, .out, .job, .seg, .site, .ticker) { background: var(--surface); -webkit-backdrop-filter: none; backdrop-filter: none }
+html.calm .toolbar, html.calm .band, html.calm .deliver { background: var(--sunk); -webkit-backdrop-filter: none; backdrop-filter: none } html.calm .band, html.calm .deliver { box-shadow: 0 0 0 100vmax var(--sunk) }
+@supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) { :root { --glass: rgba(255,255,255,.82) } }
+
+/* Typographie : Bricolage Grotesque (titres, présents et serrés), Fraunces italique (accents, signature),
+   Plus Jakarta Sans (texte), IBM Plex Mono (valeurs) ; Shippori Mincho seulement pour les kanji. */
+h1, h2, h3, .num, .source-name, .brand, .step, .hero-card-t { font-family: var(--display); font-variation-settings: "opsz" 96 }
+h1 { font-weight: 800; letter-spacing: -.035em; line-height: .92 }
+h1 em { font-family: var(--serif); font-style: italic; font-weight: 400; letter-spacing: -.02em; font-variation-settings: "opsz" 144 }
+h2 { font-weight: 800; letter-spacing: -.025em }
+.step { font-weight: 800; letter-spacing: -.04em }
+.brand { font-weight: 800; letter-spacing: -.02em } .brand-name small { letter-spacing: .12em }
+.tagline, .jobdesc, .hero-card-t { font-family: var(--serif); font-style: italic; font-weight: 400 }
+.hero-card-t { font-style: normal; font-weight: 600 }
+.num { font-weight: 700; letter-spacing: -.02em } .source-name { font-weight: 800; letter-spacing: -.02em }
+.card.jp .num { font-family: "Shippori Mincho", var(--serif); font-weight: 600 }
+.label { font-family: var(--body); font-weight: 700; letter-spacing: .14em }
+.lede { font-size: 17px } .lede b { font-weight: 700 }
+.btn, .dock-btn, .job, .seg button { font-weight: 600 }
+
+/* Couleurs imposées : bouton Valider et liste à cadenas */
+.lock-btn { display: inline-flex; align-items: center; justify-content: center; gap: 8px; width: 100% }
+.lock-btn:disabled { opacity: .45; cursor: not-allowed; transform: none }
+.locked { display: grid; gap: 8px; padding: 12px; border-radius: 16px; border: 1.5px dashed var(--line) }
+.panel.has-locks .locked { border-style: solid; border-color: var(--accent) }
+.locked-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px }
+.locked-list:empty { display: none }
+.locked-item { display: grid; grid-template-columns: 40px minmax(0, 1fr) auto; gap: 10px; align-items: center }
+.locked-sw { position: relative; width: 40px; height: 40px; border-radius: 12px; border: 1px solid var(--glass-line, var(--line)) }
+.locked-sw::after { content: ""; position: absolute; inset: 11px; background: currentColor;
+  -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath d='M4.5 7V5a3.5 3.5 0 0 1 7 0v2' fill='none' stroke='black' stroke-width='1.8'/%3E%3Crect x='2.5' y='7' width='11' height='7.5' rx='2'/%3E%3C/svg%3E") center / contain no-repeat;
+  mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath d='M4.5 7V5a3.5 3.5 0 0 1 7 0v2' fill='none' stroke='black' stroke-width='1.8'/%3E%3Crect x='2.5' y='7' width='11' height='7.5' rx='2'/%3E%3C/svg%3E") center / contain no-repeat }
+.locked-what { min-width: 0; font-size: 13px; line-height: 1.3 }
+.locked-what b { font-family: var(--mono); font-weight: 500; display: block }
+.locked-what small { color: var(--muted) }
+.seg button:disabled { opacity: .35; cursor: not-allowed }
+
+/* Proposition client : note d'intention, studio, gamme, photo, pistes, vue client */
+.deliver-grid.two { grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)) }
+.dcard-head { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 8px }
+textarea.textin { width: 100%; resize: vertical; font: 400 14.5px/1.55 var(--body) }
+.intent { min-height: 150px } .intent.edited { border-color: var(--accent) }
+.studio-row { display: grid; grid-template-columns: 110px minmax(0, 1fr); gap: 14px; align-items: start }
+.studio-fields { display: grid; gap: 10px } .studio-fields .textin { width: 100% }
+.logo-drop { position: relative; display: grid; place-items: center; height: 110px; border: 1.5px dashed var(--line); border-radius: 16px; cursor: pointer; font-size: 13px; color: var(--muted); overflow: hidden; background: var(--glass-strong, var(--surface)) }
+.logo-drop img { max-width: 92%; max-height: 92%; object-fit: contain }
+.logo-drop input { position: absolute; inset: 0; opacity: 0; cursor: pointer }
+.logo-drop:focus-within { outline: 2px solid var(--accent); outline-offset: 2px }
+.scale-card { gap: 12px }
+.scales { display: grid; gap: 8px; overflow-x: auto; padding-bottom: 4px }
+.scale-row { display: grid; grid-template-columns: 96px repeat(11, minmax(56px, 1fr)); gap: 4px; align-items: stretch; min-width: 720px }
+.scale-name { font-size: 12.5px; font-weight: 600; align-self: center }
+.scale-sw { border: 0; border-radius: 8px; padding: 8px 6px; display: grid; gap: 2px; text-align: left; font: 600 12px/1.2 var(--body) }
+.scale-sw small { font: 400 10px/1.2 var(--mono); opacity: .85 }
+.scale-sw.base { outline: 2px solid var(--ink); outline-offset: 2px }
+.photo-card { margin-top: 6px }
+.drop.small { padding: 14px }
+.photo-box { display: grid; gap: 12px }
+.photo-box canvas { width: 100%; height: auto; border-radius: 14px; cursor: pointer; display: block }
+.photo-tools { display: flex; flex-wrap: wrap; gap: 14px; align-items: end }
+.photo-tools .range { display: grid; gap: 6px; min-width: 160px; flex: 1 }
+.photo-tools input[type=range] { width: 100%; accent-color: var(--accent) }
+.photo-zones { list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; gap: 6px }
+.zone { display: inline-flex; align-items: center; gap: 6px; background: var(--glass-strong, var(--surface)); border: 1px solid var(--line); border-radius: 99px; padding: 4px 10px 4px 4px; font-size: 12px }
+.zsw { width: 22px; height: 22px; border-radius: 50%; border: 1px solid var(--line) }
+.zarrow { color: var(--muted) }
+.btn:disabled { opacity: .45; cursor: not-allowed; transform: none }
+.pitch { gap: 10px }
+.responses { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px }
+.responses:empty { display: none }
+.response { border-left: 3px solid var(--accent); padding: 4px 0 4px 12px; display: grid; gap: 2px; font-size: 13.5px }
+.response q { color: var(--muted); font-style: italic }
+.item-pro { display: flex; flex-wrap: wrap; gap: 6px; align-items: center }
+.textin.small { font-size: 12.5px; padding: 4px 8px }
+.status.valide { border-color: var(--ink); font-weight: 700 } .status.refuse { color: var(--muted); text-decoration: line-through }
+.saved-item { position: relative }
+.saved-item.has-piste { border-color: var(--ink) }
+.piste-badge { display: inline-grid; place-items: center; width: 26px; height: 26px; border-radius: 50%; background: var(--ink); color: var(--bg); font: 800 13px/1 var(--display) }
+.saved-item > .piste-badge { position: absolute; top: -10px; right: -8px }
+.piste-badge.big { width: 44px; height: 44px; font-size: 22px; flex: none }
+/* Vue client (#p=…) : l'outil disparaît, seule la proposition reste */
+html.present .wrap > :not(.present), html.present .toolbar, html.present .dock, html.present .nav, html.present .cta-top, html.present .ticker { display: none !important }
+.present { display: grid; gap: 28px }
+.present-head { display: grid; gap: 12px; justify-items: center; text-align: center; padding: 24px 0 8px }
+.present-head h1 { font-size: clamp(34px, 6vw, 72px) }
+.present-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 20px; align-items: start }
+.piste-card { display: grid; gap: 14px; padding: 18px; border-radius: 24px; background: var(--glass, var(--surface)); border: 1px solid var(--glass-line, var(--line)); box-shadow: var(--glass-hi, none), var(--glass-shadow, var(--shadow)); -webkit-backdrop-filter: blur(18px); backdrop-filter: blur(18px) }
+.piste-card.chosen { outline: 3px solid var(--accent); outline-offset: 3px }
+.piste-top { display: flex; gap: 12px; align-items: center }
+.piste-card h2 { font-size: 24px }
+.piste-card .bigsw { height: 140px }
+.intent-text { font: italic 400 16px/1.55 var(--serif) }
+.piste-card .hexes { font: 400 12px/1.5 var(--mono); color: var(--muted) }
+.btn.choose { display: inline-flex; align-items: center; justify-content: center; gap: 8px; cursor: pointer }
+.btn.choose input { accent-color: var(--accent) }
+.present-form { max-width: 640px; justify-self: center; width: 100% }
+.present-form .textin { width: 100% }
+.resp-out { display: grid; gap: 10px }
+.print-pages { display: none }
+@media print {
+  html.has-pages .wrap, html.has-pages .print-sheet { display: none !important }
+  html.has-pages .print-pages { display: block }
+  html.has-pages .print-pages img { display: block; width: 100%; max-height: 189mm; object-fit: contain; break-after: page; page-break-after: always }
+  html.has-pages .print-pages img:last-child { break-after: auto; page-break-after: auto }
+}
+
+/* Apparitions au défilement (désactivées si l'utilisateur limite les animations) */
+.reveal { opacity: 0; transform: translateY(24px); transition: opacity .7s ease, transform .7s ease }
+.reveal.in { opacity: 1; transform: none }
+.card, .source { animation: pop .45s ease both }
+.cards li:nth-child(2) .card { animation-delay: .04s } .cards li:nth-child(3) .card { animation-delay: .08s } .cards li:nth-child(4) .card { animation-delay: .12s }
+.cards li:nth-child(5) .card { animation-delay: .16s } .cards li:nth-child(6) .card { animation-delay: .2s } .cards li:nth-child(n+7) .card { animation-delay: .24s }
+@keyframes pop { from { opacity: 0; transform: translateY(10px) scale(.98) } to { opacity: 1; transform: none } }
+@media (prefers-reduced-motion: reduce) { .hero::before { animation: none } .reveal { opacity: 1; transform: none; transition: none } .card, .source { animation: none } }
+
+/* Fond neutre (bouton du dock) : plus d'aura, de trame ni de couleurs décoratives, pour juger les teintes sans biais */
+html.calm body { background-image: none }
+html.calm .hero::before, html.calm .band::before, html.calm .deliver::before { display: none }
+html.calm .step { background: none; color: var(--line) }
+
 /* Impression : la planche générée seule (bouton « Imprimer ou PDF ») ; sinon, l'accord sur fond blanc. */
 .print-sheet { display: none }
 @media print {
@@ -242,7 +462,9 @@ select, .textin { font: inherit; font-size: 14px; color: var(--ink); background:
   :root:root:root { --bg: #fff; --surface: #fff; --line: #d9d9d5; --ink: #1b1b19; --muted: #5d5d58; color-scheme: light }
   * { -webkit-print-color-adjust: exact; print-color-adjust: exact }
   body { background: #fff }
-  .site, .foot, .toast, .skip { display: none !important }
+  .site, .foot, .toast, .skip, .ticker, .dock, .toolbar, .hero::before, body::before, body::after { display: none !important }
+  body { background: #fff }
+  .reveal { opacity: 1; transform: none }
   html.has-sheet .wrap { display: none }
   html.has-sheet .print-sheet { display: block; width: auto; height: auto; max-width: 100%; max-height: 189mm; margin: 0 auto }
   html:not(.has-sheet) .hero, html:not(.has-sheet) .band, html:not(.has-sheet) .main, html:not(.has-sheet) .dict, html:not(.has-sheet) .actions,
@@ -250,3 +472,6 @@ select, .textin { font: inherit; font-size: 14px; color: var(--ink); background:
   html:not(.has-sheet) .out, html:not(.has-sheet) .deliver-grid, html:not(.has-sheet) .mini, html:not(.has-sheet) .step { display: none }
   html:not(.has-sheet) .detail, html:not(.has-sheet) .deliver { border-top: 0; padding-top: 0 }
 }
+.locked-slot { width: 100%; display: grid; grid-template-columns: 40px minmax(0, 1fr); gap: 10px; align-items: center; text-align: left; background: transparent; border: 1.5px dashed var(--line); border-radius: 14px; padding: 6px; font-size: 13px; color: var(--muted) }
+.locked-slot:hover { border-color: var(--ink); color: var(--ink) }
+.slot-sw { width: 40px; height: 40px; border-radius: 12px; opacity: .55; border: 1px dashed var(--ink) }

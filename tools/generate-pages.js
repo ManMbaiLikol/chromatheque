@@ -18,9 +18,9 @@ const COMBOS = JSON.parse(fs.readFileSync(path.join(ROOT, "data", "wada-348.json
 
 const T = {
   fr: {
-    num: "n° ", home: "Accords Wada", dict: "Les 348 combinaisons", colors: (k) => k + " couleurs",
+    num: "n° ", home: "La Chromathèque", dict: "Les 348 combinaisons", colors: (k) => k + " couleurs",
     kicker: (k) => "Sanzo Wada · 1933 · " + k + " couleurs",
-    title: (n, names) => "Sanzo Wada n° " + n + " · " + names + " · Accords Wada",
+    title: (n, names) => "Sanzo Wada n° " + n + " · " + names + " · La Chromathèque de Man Mbaï Likol",
     desc: (n, hexes, p) => "Combinaison n° " + n + " du Dictionary of Color Combinations de Sanzo Wada : " + hexes + ". Proportions " + p + ", valeurs RGB, CMJN, LRV et accords voisins.",
     intro: (k, parts) => "Combinaison à " + k + " couleurs du <i>Dictionary of Color Combinations</i>. Proportions conseillées (convention MML) : " + parts + ".",
     caption: "Valeurs pour la fabrication", capHint: "CMJN sans profil ICC et LRV estimé depuis l'écran : à confirmer sur nuancier.",
@@ -34,15 +34,15 @@ const T = {
     also: (name, hex) => "Autres accords avec " + name + " " + hex,
     prev: "Précédent", next: "Suivant",
     note: "Les valeurs hex viennent de la conversion CMJN → HEX de HexPot : ce sont des cibles à vérifier sur ton support réel (tissu, peinture, impression).",
-    crumbs: "Fil d'Ariane", other: "English", indexTitle: "Les 348 combinaisons de Sanzo Wada · Accords Wada",
+    crumbs: "Fil d'Ariane", other: "English", indexTitle: "Les 348 combinaisons de Sanzo Wada · La Chromathèque de Man Mbaï Likol",
     indexDesc: "Les 348 combinaisons du Dictionary of Color Combinations de Sanzo Wada, avec valeurs, proportions et accords voisins.",
     indexLede: "Chaque fiche donne les valeurs (HEX, RGB, HSL, OKLCH, CMJN, LRV), les proportions et les accords qui partagent une couleur.",
-    by: "Accords Wada — Manso Olivier · MAN MBAÏ LIKOL"
+    by: "La Chromathèque de Man Mbaï Likol — Manso Olivier"
   },
   en: {
-    num: "No. ", home: "Accords Wada", dict: "The 348 combinations", colors: (k) => k + " colors",
+    num: "No. ", home: "La Chromathèque", dict: "The 348 combinations", colors: (k) => k + " colors",
     kicker: (k) => "Sanzo Wada · 1933 · " + k + " colors",
-    title: (n, names) => "Sanzo Wada No. " + n + " · " + names + " · Accords Wada",
+    title: (n, names) => "Sanzo Wada No. " + n + " · " + names + " · La Chromathèque de Man Mbaï Likol",
     desc: (n, hexes, p) => "Combination No. " + n + " from Sanzo Wada's Dictionary of Color Combinations: " + hexes + ". Proportions " + p + ", RGB, CMYK and LRV values, related combinations.",
     intro: (k, parts) => k + "-color combination from the <i>Dictionary of Color Combinations</i>. Suggested proportions (MML convention): " + parts + ".",
     caption: "Values for production", capHint: "CMYK without ICC profile and LRV estimated from screen: confirm with a physical swatch.",
@@ -56,10 +56,10 @@ const T = {
     also: (name, hex) => "Other combinations with " + name + " " + hex,
     prev: "Previous", next: "Next",
     note: "Hex values come from HexPot's CMYK → HEX conversion: they are targets to check on your real material (fabric, paint, print).",
-    crumbs: "Breadcrumb", other: "Français", indexTitle: "The 348 combinations by Sanzo Wada · Accords Wada",
+    crumbs: "Breadcrumb", other: "Français", indexTitle: "The 348 combinations by Sanzo Wada · La Chromathèque de Man Mbaï Likol",
     indexDesc: "All 348 combinations from Sanzo Wada's Dictionary of Color Combinations, with values, proportions and related combinations.",
     indexLede: "Each sheet gives the values (HEX, RGB, HSL, OKLCH, CMYK, LRV), the proportions and the combinations sharing a color.",
-    by: "Accords Wada — Manso Olivier · MAN MBAÏ LIKOL"
+    by: "La Chromathèque de Man Mbaï Likol — Manso Olivier"
   }
 };
 
@@ -97,7 +97,7 @@ ${links}<meta property="og:type" content="article">
 <link rel="icon" href="${up(lang, n)}icons/icon.svg" type="image/svg+xml">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Shippori+Mincho:wght@500;700&family=Zen+Kaku+Gothic+New:wght@400;500;700&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,400..800&family=Fraunces:ital,opsz,wght@0,9..144,400..700;1,9..144,400..600&family=Plus+Jakarta+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&family=Shippori+Mincho:wght@600&display=swap">
 <link rel="stylesheet" href="${up(lang, n)}src/styles.css">
 </head>
 <body>

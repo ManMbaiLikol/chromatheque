@@ -1,10 +1,10 @@
-/* Accords Wada — service worker : l'app marche hors ligne (showroom, chantier).
+/* La Chromathèque de Man Mbaï Likol — service worker : l'app marche hors ligne (showroom, chantier).
    Réseau d'abord pour nos fichiers (on voit toujours la dernière version en ligne), cache en secours.
    Polices Google : cache d'abord. Changer VERSION à chaque mise en ligne qui modifie la liste SHELL. */
-var VERSION = "accords-wada-v2";
+var VERSION = "accords-wada-v3";
 var SHELL = [
   "./", "index.html", "manifest.webmanifest",
-  "src/styles.css", "src/core.js", "src/i18n.js", "src/wada-data.js", "src/sources-data.js", "src/scenes.js", "src/app.js",
+  "src/styles.css", "src/core.js", "src/i18n.js", "src/wada-data.js", "src/sources-data.js", "src/scenes.js", "src/proposal.js", "src/recolor.js", "src/app.js",
   "icons/icon.svg", "icons/icon-192.png", "icons/icon-512.png"
 ];
 var FONTS = "accords-wada-fonts";

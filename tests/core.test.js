@@ -196,3 +196,75 @@ test("exports : titre et préfixe d'une autre source", () => {
   assert.match(C.tailwindText(meta, items, "fr"), /--color-kasane-dominante: #db6d8a/);
   assert.match(C.gplText(meta, items), /Name: Kasane no irome · 紅梅/);
 });
+
+test("couleurs imposées : k=1 pour une, c2 pour deux, anciens liens inchangés", () => {
+  assert.equal(C.readHash("#c=1448c8&n=3").locked, 0);
+  assert.equal(C.readHash("#c=1448c8&k=1&n=3").locked, 1);
+  assert.equal(C.readHash("#c=d94d99&c2=ffffff&n=55").locked, 2);
+  assert.equal(C.hashOf(C.readHash("#c=1448c8&k=1&n=3")), "#c=1448c8&k=1&n=3");
+  assert.equal(C.hashOf(C.readHash("#c=d94d99&c2=ffffff&n=55")), "#c=d94d99&c2=ffffff&n=55");
+  assert.equal(C.keyOf("#c=1448c8&k=1&n=3"), C.keyOf("#c=1448c8&n=3"));
+});
+
+test("règles à deux couleurs : les deux restent exactes, 1 ou 2 compagnes", () => {
+  const r = C.ruleCombos2("#1448c8", "#e2a72e");
+  assert.deepEqual(r.map((x) => x.k), C.RULES2);
+  r.forEach((x) => {
+    assert.deepEqual(x.colors.slice(0, 2), ["#1448c8", "#e2a72e"]);
+    assert.ok(x.colors.length === 3 || x.colors.length === 4);
+    x.colors.forEach((c) => assert.ok(C.parseHex(c)));
+  });
+  C.ruleCombos2("#808080", "#ffffff").forEach((x) => x.colors.forEach((c) => assert.ok(C.parseHex(c))));
+});
+
+test("deux couleurs imposées dans Wada : des accords de 3 ou 4 couleurs les contiennent", () => {
+  const r = search("#d94d99", 0, "#ffffff").filter((x) => x.colors.length >= 3);
+  assert.ok(r.length > 0);
+  assert.ok(r[0].idx !== r[0].idx2);
+});
+
+test("gamme : 11 paliers du plus clair au plus foncé, la couleur d'origine exacte", () => {
+  for (const hex of ["#1448c8", "#d94d99", "#808080", "#f2ad78", "#1c1a17"]) {
+    const sc = C.scaleOf(hex);
+    assert.deepEqual(sc.map((s) => s.step), C.SCALE_STEPS);
+    assert.equal(sc.filter((s) => s.base).length, 1);
+    assert.equal(sc.find((s) => s.base).hex, hex);
+    for (let i = 1; i < sc.length; i++) assert.ok(C.lab(sc[i].hex)[0] < C.lab(sc[i - 1].hex)[0] + 1e-6, hex + " palier " + sc[i].step);
+  }
+  const tw = C.scaleText("tailwind", [{ slug: "accent", hex: "#1448c8" }], "kasane");
+  assert.match(tw, /^@theme \{\n  --color-kasane-accent-50: #/);
+  assert.equal(JSON.parse(C.scaleText("tokens", [{ slug: "accent", hex: "#1448c8" }], "wada")).wada.accent["700"].$value, "#1448c8");
+});
+
+test("recoloration : intensité 0 = original, 1 = cible au pixel moyen", () => {
+  const px = [0.6, 0.05, -0.02], mean = [0.5, 0.04, -0.01], target = [0.7, -0.1, 0.1];
+  assert.deepEqual(C.recolorLab(px, mean, target, 0), px);
+  assert.deepEqual(C.recolorLab(mean, mean, target, 1), target);
+  const r = C.recolorLab(px, mean, target, 1);
+  assert.ok(Math.abs(r[0] - 0.8) < 1e-9, "le relief de lumière est gardé");
+});
+
+test("proposition client : liens revalidés, textes bornés, 3 pistes au plus", () => {
+  const p = C.cleanProposal({ id: "abc", t: "Hôtel <b>", cl: "x".repeat(300), i: [
+    { h: "#c=D94D99&n=55&zz=1", c: ["#D94D99", "#fff"], p: "A", x: "Note" },
+    { h: "#c=nope", c: ["#000000", "#ffffff"], p: "B" },
+    { h: "#c=1448c8&n=161", c: ["#1448c8", "#6c2b11", "#f2ad78"], p: "Z" },
+    { h: "#c=1448c8&n=2", c: ["#000000", "#ffffff"] }, { h: "#c=1448c8&n=3", c: ["#000000", "#ffffff"] }] });
+  assert.equal(p.i.length, 3);
+  assert.equal(p.i[0].h, "#c=d94d99&n=55");
+  assert.deepEqual(p.i[0].c, ["#d94d99", "#ffffff"]);
+  assert.equal(p.i[1].p, "");
+  assert.equal(p.cl.length, 80);
+  assert.equal(C.cleanProposal({ i: [] }), null);
+  const back = C.cleanProposal(C.unpackLink(C.packLink(p)));
+  assert.deepEqual(back, p);
+  assert.deepEqual(C.cleanResponse({ id: "abc", p: "B", c: "ok" }), { id: "abc", p: "B", c: "ok", n: "", d: "" });
+  assert.equal(C.cleanResponse({ p: "D" }), null);
+  assert.equal(C.unpackLink("%E0%A4%A"), null);
+});
+
+test("import : piste, statut et note d'intention conservés et bornés", () => {
+  const it = C.cleanItems([{ hash: "#c=d94d99&n=55", colors: ["#d94d99", "#ffffff"], piste: "B", status: "valide", intent: "y".repeat(3000) }])[0];
+  assert.equal(it.piste, "B"); assert.equal(it.status, "valide"); assert.equal(it.intent.length, 1500);
+  assert.equal(C.cleanItems([{ hash: "#c=d94d99&n=55", colors: ["#d94d99", "#ffffff"], piste: "X", status: "??" }])[0].piste, "");
+});

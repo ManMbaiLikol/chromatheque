@@ -1,7 +1,7 @@
 {
-  "name": "Accords Wada",
-  "short_name": "Accords Wada",
-  "description": "Pars d'une couleur ou d'une photo et trouve les combinaisons du Dictionary of Color Combinations de Sanzo Wada qui la contiennent.",
+  "name": "La Chromathèque de Man Mbaï Likol",
+  "short_name": "Chromathèque",
+  "description": "L'atelier des accords de couleur : pars d'une couleur ou d'une photo et trouve les accords qui la contiennent, chez Sanzo Wada et dans d'autres traditions, avec leur effet dans ton métier.",
   "lang": "fr",
   "start_url": "./",
   "scope": "./",

@@ -1,4 +1,4 @@
-/* Accords Wada — fonctions pures : couleur, valeurs, recherche Wada, simulations, exports, liens.
+/* La Chromathèque de Man Mbaï Likol — fonctions pures : couleur, valeurs, recherche Wada, simulations, exports, liens.
    Aucune dépendance au DOM. Dans le navigateur : window.WadaCore. Dans Node : require("./src/core.js")
    (tests dans tests/, génération des pages par accord dans tools/). */
 (function (root, factory) {
@@ -231,6 +231,22 @@
     };
     return RULES.map(function (k, i) { return { n: i + 1, k: k, colors: out[k] }; });
   }
+  /* Deux couleurs imposées : elles restent exactes, les compagnes sont calculées à partir du duo.
+     médiane (harmonie d'analogues de Chevreul : la teinte intermédiaire), contrepoint (complémentaire de la
+     teinte moyenne), clair-obscur (harmonie de gamme : clair de l'une, foncé de l'autre), neutres accordés. */
+  var RULES2 = ["mediane", "contrepoint", "clairobscur", "neutres"];
+  function ruleCombos2(a, b) {
+    var A = lch(a), B = lch(b), wa = A[1] >= 0.03, wb = B[1] >= 0.03;
+    var ha = wa ? A[2] : B[2], hb = wb ? B[2] : A[2], d = ((hb - ha + 540) % 360) - 180, mid = (ha + d / 2 + 360) % 360;
+    var C = Math.max(A[1], B[1], 0.06), L = (A[0] + B[0]) / 2, la = lab(a), lb = lab(b);
+    var out = {
+      mediane: [a, b, toHex(linFromLab(la.map(function (v, i) { return (v + lb[i]) / 2; })).map(delin)), fromLch(Math.min(0.94, L + 0.25), C * 0.45, mid)],
+      contrepoint: [a, b, fromLch(Math.max(0.3, Math.min(0.8, L)), C, (mid + 180) % 360)],
+      clairobscur: [a, b, fromLch(0.94, Math.min(A[1], 0.05), A[2]), fromLch(0.24, Math.min(B[1], 0.08), B[2])],
+      neutres: [a, b, fromLch(0.93, 0.012, ha), fromLch(0.28, 0.018, hb)]
+    };
+    return RULES2.map(function (k, i) { return { n: i + 1, k: k, colors: out[k] }; });
+  }
 
   /* ---------- analyses par métier ----------
      Chaque contrôle rend { k, lv: "ok" | "warn" | "info", v } ; les textes sont dans i18n.js (chk.<k>.<lv>).
@@ -324,6 +340,70 @@
     return j.c.map(function (k) { var r = CHECKS[k](cs); return { k: k, lv: r.lv, v: r.v }; });
   }
 
+  /* ---------- gamme : clairs et foncés d'une couleur (charte, interface, déclinaisons) ----------
+     11 paliers façon 50…950 en OKLCH : même teinte, chroma atténué aux extrêmes ; le palier le plus proche
+     de la couleur d'origine prend sa valeur exacte (base). */
+  var SCALE_STEPS = [50, 100, 200, 300, 400, 500, 600, 700, 800, 900, 950];
+  var SCALE_L = [0.975, 0.94, 0.88, 0.8, 0.71, 0.62, 0.53, 0.45, 0.37, 0.29, 0.22];
+  function scaleOf(hex) {
+    var l = lch(hex), L = l[0], Cc = l[1], H = l[2], best = 0;
+    SCALE_L.forEach(function (x, i) { if (Math.abs(x - L) < Math.abs(SCALE_L[best] - L)) best = i; });
+    return SCALE_STEPS.map(function (step, i) {
+      if (i === best) return { step: step, hex: hex.toLowerCase(), base: true };
+      var x = SCALE_L[i], k = Math.max(0.15, 1 - Math.abs(x - L) / 0.9) * (x > 0.9 ? 0.55 : 1);
+      return { step: step, hex: fromLch(x, Cc < 0.03 ? Cc : Cc * k, H), base: false };
+    });
+  }
+  // items : [{ slug, hex }] → texte CSS, Tailwind v4 ou tokens W3C de toutes les gammes.
+  function scaleText(kind, items, prefix) {
+    var p = prefix || "wada", rows = items.map(function (it) { return { slug: it.slug, scale: scaleOf(it.hex) }; });
+    if (kind === "tokens") {
+      var root = {}; root[p] = {};
+      rows.forEach(function (r) { var g = root[p][r.slug] = {}; r.scale.forEach(function (s) { g[s.step] = { $type: "color", $value: s.hex }; }); });
+      return JSON.stringify(root, null, 2) + "\n";
+    }
+    var lines = []; rows.forEach(function (r) { r.scale.forEach(function (s) { lines.push("  --" + (kind === "tailwind" ? "color-" : "") + p + "-" + r.slug + "-" + s.step + ": " + s.hex + ";"); }); });
+    return (kind === "tailwind" ? "@theme {\n" : ":root {\n") + lines.join("\n") + "\n}\n";
+  }
+
+  /* ---------- recoloration d'une photo ----------
+     Chaque pixel garde son écart à la moyenne de sa zone (relief, ombres, texture) et prend la couleur cible :
+     lumière conservée à 100 %, nuances de teinte à 30 %. strength : 0 = original, 1 = recoloration complète. */
+  function recolorLab(px, mean, target, strength) {
+    var s = strength == null ? 1 : strength;
+    var out = [target[0] + (px[0] - mean[0]), target[1] + (px[1] - mean[1]) * 0.3, target[2] + (px[2] - mean[2]) * 0.3];
+    return [px[0] + (out[0] - px[0]) * s, px[1] + (out[1] - px[1]) * s, px[2] + (out[2] - px[2]) * s];
+  }
+
+  /* ---------- note d'intention : les faits, les mots viennent de i18n.js ---------- */
+  function intentFacts(cs, job) {
+    var checks = jobChecks(job, cs), L = cs.map(function (c) { return lch(c)[0]; }), r = Math.max.apply(null, L) - Math.min.apply(null, L);
+    return { harmony: harmonyOf(cs), temp: tempOf(cs), contrast: r < 0.25 ? "doux" : r < 0.5 ? "moyen" : "fort",
+      ok: checks.filter(function (c) { return c.lv === "ok"; }).length, warn: checks.filter(function (c) { return c.lv === "warn"; }), checks: checks };
+  }
+
+  /* ---------- proposition client et réponse (dans le lien, sans serveur) ----------
+     Tout est revalidé à la lecture : liens relus puis resérialisés, hex vérifiés, textes bornés. */
+  function str(v, max) { return typeof v === "string" ? v.replace(/[\u0000-\u001f]/g, " ").trim().slice(0, max) : ""; }
+  function cleanProposal(o) {
+    if (!o || typeof o !== "object") return null;
+    var items = (Array.isArray(o.i) ? o.i : []).map(function (it) {
+      var k = it && typeof it.h === "string" ? readHash(it.h) : null; if (!k || !k.n) return null;
+      var colors = Array.isArray(it.c) ? it.c.map(function (c) { return typeof c === "string" ? parseHex(c) : null; }) : [];
+      if (colors.length < 2 || colors.length > 4 || colors.indexOf(null) >= 0) return null;
+      k.lang = null;
+      return { h: hashOf(k), c: colors, p: ["A", "B", "C"].indexOf(it.p) >= 0 ? it.p : "", x: str(it.x, 1500), l: str(it.l, 120) };
+    }).filter(Boolean).slice(0, 3);
+    if (!items.length) return null;
+    return { id: str(o.id, 40), t: str(o.t, 80), cl: str(o.cl, 80), s: str(o.s, 80), m: str(o.m, 120), d: str(o.d, 40), i: items };
+  }
+  function cleanResponse(o) {
+    if (!o || typeof o !== "object" || ["A", "B", "C"].indexOf(o.p) < 0) return null;
+    return { id: str(o.id, 40), p: o.p, c: str(o.c, 800), n: str(o.n, 80), d: str(o.d, 40) };
+  }
+  function packLink(o) { return encodeURIComponent(JSON.stringify(o)); }
+  function unpackLink(s) { try { return JSON.parse(decodeURIComponent(s)); } catch (e) { return null; } }
+
   /* ---------- lien partageable : l'état tient dans le hash ----------
      #c=1448c8&c2=e8b04a&n=55&o=1.0.2&t=3&ex=0&tr=1&sc=mode&s=kasane&lg=en — format à garder rétrocompatible.
      sc = métier (les anciennes scènes interieur, mode, graphisme en sont restées les identifiants) ; s = source, absente pour Wada. */
@@ -336,11 +416,13 @@
       order: q.o ? q.o.split(".").map(Number) : null, size: [2, 3, 4].indexOf(+q.t) >= 0 ? +q.t : 0,
       substitute: q.ex !== "0", transpose: q.tr === "1", scene: SCENES.indexOf(q.sc) >= 0 ? q.sc : "interieur",
       source: SOURCES.indexOf(q.s) > 0 ? q.s : "wada",
+      locked: q.c2 && parseHex(q.c2) ? 2 : q.k === "1" ? 1 : 0,
       lang: q.lg === "en" || q.lg === "fr" ? q.lg : null };
   }
   function hashOf(k) {
     var p = ["c=" + k.seed.slice(1)];
     if (k.seed2) p.push("c2=" + k.seed2.slice(1));
+    else if (k.locked === 1) p.push("k=1");
     if (k.n) p.push("n=" + k.n);
     if (k.n && k.order) p.push("o=" + k.order.join("."));
     if (k.size) p.push("t=" + k.size);
@@ -360,7 +442,9 @@
       var colors = Array.isArray(it.colors) ? it.colors.map(function (c) { return typeof c === "string" ? parseHex(c) : null; }) : [];
       if (colors.length < 2 || colors.length > 4 || colors.indexOf(null) >= 0) return null;
       k.lang = null;
-      return { hash: hashOf(k), n: k.n, source: k.source, colors: colors, note: typeof it.note === "string" ? it.note.slice(0, 160) : "", added: typeof it.added === "string" ? it.added.slice(0, 40) : "" };
+      return { hash: hashOf(k), n: k.n, source: k.source, colors: colors, note: typeof it.note === "string" ? it.note.slice(0, 160) : "", added: typeof it.added === "string" ? it.added.slice(0, 40) : "",
+        piste: ["A", "B", "C"].indexOf(it.piste) >= 0 ? it.piste : "", status: ["propose", "valide", "refuse"].indexOf(it.status) >= 0 ? it.status : "",
+        statusDate: str(it.statusDate, 40), intent: str(it.intent, 1500) };
     }).filter(Boolean);
   }
   // Données compactes de wada-data.js ("d94d99ffffff") → tableaux de hex.
@@ -373,7 +457,9 @@
     PROPS: PROPS, rolesOf: rolesOf, slugsOf: slugsOf, fid: fid, createSearch: createSearch, build: build,
     simulate: simulate, confusions: confusions, CVD_TYPES: Object.keys(CVD),
     aseBytes: aseBytes, metaOf: metaOf, tokensText: tokensText, tailwindText: tailwindText, gplText: gplText,
-    RULES: RULES, ruleCombos: ruleCombos, JOBS: JOBS, JOB_IDS: JOB_IDS, FAMILIES: FAMILIES, jobChecks: jobChecks,
+    RULES: RULES, ruleCombos: ruleCombos, RULES2: RULES2, ruleCombos2: ruleCombos2, JOBS: JOBS, JOB_IDS: JOB_IDS, FAMILIES: FAMILIES, jobChecks: jobChecks,
+    SCALE_STEPS: SCALE_STEPS, scaleOf: scaleOf, scaleText: scaleText, recolorLab: recolorLab, intentFacts: intentFacts,
+    cleanProposal: cleanProposal, cleanResponse: cleanResponse, packLink: packLink, unpackLink: unpackLink,
     harmonyOf: harmonyOf, tempOf: tempOf, opticalMix: opticalMix, cmykRisk: cmykRisk, videoUnsafe: videoUnsafe,
     SCENES: SCENES, SOURCES: SOURCES, readHash: readHash, hashOf: hashOf, keyOf: keyOf, cleanItems: cleanItems, unpack: unpack
   };

@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>Accords Wada</title>
+<title>La Chromathèque de Man Mbaï Likol · l'atelier des accords de couleur</title>
 <meta name="description" content="Pars d'une couleur ou d'une photo et trouve les combinaisons du Dictionary of Color Combinations de Sanzo Wada qui la contiennent.">
 <meta name="theme-color" content="#f1f1ef" media="(prefers-color-scheme: light)">
 <meta name="theme-color" content="#161615" media="(prefers-color-scheme: dark)">
@@ -12,14 +12,15 @@
 <link rel="apple-touch-icon" href="icons/icon-192.png">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Shippori+Mincho:wght@500;700&family=Zen+Kaku+Gothic+New:wght@400;500;700&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,400..800&amp;family=Fraunces:ital,opsz,wght@0,9..144,400..700;1,9..144,400..600&amp;family=Plus+Jakarta+Sans:wght@400;500;600;700&amp;family=IBM+Plex+Mono:wght@400;500&amp;family=Shippori+Mincho:wght@600&amp;display=swap">
 <link rel="stylesheet" href="src/styles.css">
 </head>
 <body>
 <a class="skip" href="#couleur" data-i18n="h.skip">Aller à l'outil</a>
+<div class="ticker" aria-hidden="true"><div class="ticker-track" id="ticker"></div></div>
 <header class="site">
   <div class="site-in">
-    <a class="brand" href="#top"><span class="brand-mark" id="brandMark" aria-hidden="true"><i></i><i></i><i></i></span><span>Accords Wada</span></a>
+    <a class="brand" href="#top"><span class="brand-mark" id="brandMark" aria-hidden="true"><i></i><i></i><i></i></span><span class="brand-name"><span>La Chromathèque</span><small>de Man Mbaï Likol</small></span></a>
     <nav class="nav" aria-label="Sections" data-i18n-attr="aria-label=h.nav">
       <a href="#sources" data-i18n="h.nav.sources">Sources</a>
       <a href="#couleur" data-i18n="h.nav.color">Couleur</a>
@@ -34,26 +35,39 @@
         <button type="button" data-v="en" lang="en" aria-pressed="false">EN</button>
       </div>
       <button class="btn ghost small" type="button" id="install" hidden data-i18n="h.install">Installer l'app</button>
+      <a class="btn small cta-top" href="#couleur" data-i18n="h.start">Commencer</a>
     </div>
   </div>
 </header>
 
 <main class="wrap" id="top">
+  <section class="present" id="present" hidden aria-labelledby="presentTitle"></section>
+  <nav class="toolbar" aria-label="Réglages en cours" data-i18n-attr="aria-label=h.toolbar">
+    <a class="tool" href="#couleur"><span class="tool-sw" id="tbSeed" aria-hidden="true"></span><span class="tool-k" data-i18n="h.nav.color">Couleur</span><b id="tbSeedV"></b></a>
+    <a class="tool" href="#sources"><span class="tool-k" data-i18n="h.tb.source">Source</span><b id="tbSrc"></b><span class="chev" aria-hidden="true">⌄</span></a>
+    <a class="tool" href="#metier"><span class="tool-k" data-i18n="h.nav.job">Métier</span><b id="tbJob"></b><span class="chev" aria-hidden="true">⌄</span></a>
+  </nav>
+
   <section class="hero">
     <div class="hero-text">
-      <p class="label" data-i18n="h.kicker">Atelier de couleurs · d'après Sanzo Wada et d'autres traditions</p>
-      <h1><span data-i18n="h.title1">Trouve l'accord</span> <em data-i18n="h.title2">de ta couleur</em></h1>
-      <p class="lede" data-i18n-html="h.lede">Choisis une couleur ou dépose la photo d'un tissu, d'une peinture, d'un matériau. L'outil cherche les accords qui la contiennent, chez Sanzo Wada et dans d'autres traditions, puis te montre leur effet dans ton métier.</p>
+      <p class="kicker" data-i18n="h.kicker">D'après Sanzo Wada et d'autres traditions du monde</p>
+      <h1><span>La Chromathèque</span> <em>de Man Mbaï Likol</em></h1>
+      <p class="tagline" data-i18n="h.tagline">l'atelier des accords de couleur</p>
+      <p class="lede" data-i18n-html="h.lede"><b>Trouve l'accord de ta couleur.</b> Choisis une couleur ou dépose la photo d'un tissu, d'une peinture, d'un matériau. L'outil cherche les accords qui la contiennent, chez Sanzo Wada et dans d'autres traditions, puis te montre leur effet dans ton métier.</p>
       <div class="hero-cta">
         <a class="btn" href="#couleur" data-i18n="h.start">Commencer</a>
         <a class="btn ghost" href="#sources" data-i18n="h.seesources">Voir les sources</a>
       </div>
     </div>
-    <div class="hero-art" id="heroArt" aria-hidden="true"></div>
-    <div class="kanji" aria-hidden="true">配色　和田三造</div>
+    <aside class="hero-card" aria-labelledby="heroCardK">
+      <div class="hero-art" id="heroArt" aria-hidden="true"></div>
+      <p class="label" id="heroCardK" data-i18n="h.hero.k">L'accord du moment</p>
+      <p class="hero-card-t" id="heroCardT"></p>
+      <a class="more" href="#accord"><span data-i18n="h.hero.more">Voir l'accord</span> <span aria-hidden="true">→</span></a>
+    </aside>
   </section>
 
-  <section class="band" id="sources" aria-labelledby="srcTitle">
+  <section class="band reveal" id="sources" aria-labelledby="srcTitle">
     <div class="step-head">
       <span class="step" aria-hidden="true">01</span>
       <div>
@@ -65,31 +79,25 @@
     <p class="note" id="sourceNote"></p>
   </section>
 
-  <section class="main" id="couleur">
+  <section class="main reveal" id="couleur">
     <form class="panel" id="panel" onsubmit="return false">
       <div class="step-head">
         <span class="step" aria-hidden="true">02</span>
         <div><p class="label" data-i18n="h.color.kicker">Ton point de départ</p><h2 data-i18n="h.color.title">Ta couleur</h2></div>
       </div>
       <div class="seed">
-        <input type="color" id="picker" value="#1448c8" aria-label="Couleur de départ" data-i18n-attr="aria-label=h.seed">
+        <input type="color" id="picker" value="#1448c8" aria-label="Couleur à essayer" data-i18n-attr="aria-label=h.seed">
         <div>
-          <label class="label" for="hex" data-i18n="h.seed">Couleur de départ</label>
+          <label class="label" for="hex" id="seedLabel">Couleur à essayer</label>
           <input class="hexfield" id="hex" value="#1448C8" spellcheck="false" autocomplete="off" maxlength="7">
           <p class="seedname" id="seedname"></p>
         </div>
       </div>
-
-      <div class="multi" id="multiBox">
-        <label class="check"><input type="checkbox" id="multi"> <span data-i18n-html="h.multi">Chercher avec une 2<sup>e</sup> couleur <span class="hint">(accords qui contiennent les deux)</span></span></label>
-        <div class="seed" id="seed2" hidden>
-          <input type="color" id="picker2" value="#e8dcc0" aria-label="Deuxième couleur" data-i18n-attr="aria-label=h.seed2">
-          <div>
-            <label class="label" for="hex2" data-i18n="h.seed2">Deuxième couleur</label>
-            <input class="hexfield" id="hex2" value="#E8DCC0" spellcheck="false" autocomplete="off" maxlength="7">
-            <p class="seedname" id="seedname2"></p>
-          </div>
-        </div>
+      <button class="btn lock-btn" type="button" id="lockBtn"><svg viewBox="0 0 16 16" width="16" height="16" aria-hidden="true"><path d="M4.5 7V5a3.5 3.5 0 0 1 7 0v2" fill="none" stroke="currentColor" stroke-width="1.6"/><rect x="2.5" y="7" width="11" height="7.5" rx="2" fill="currentColor"/></svg> <span id="lockBtnText">Valider cette couleur</span></button>
+      <div class="locked" id="lockedBox" aria-live="polite">
+        <p class="label" data-i18n="h.locked">Mes couleurs imposées</p>
+        <ul class="locked-list" id="lockedList"></ul>
+        <p class="hint" id="lockedHint"></p>
       </div>
 
       <div class="drop" id="drop">
@@ -102,14 +110,7 @@
         <canvas id="canvas" aria-label="Image chargée : clique pour prélever une couleur" data-i18n-attr="aria-label=h.canvas"></canvas>
         <p class="label" data-i18n="h.imgcolors">Couleurs de l'image</p>
         <div class="chips" id="chips"></div>
-        <p class="hint" data-i18n="h.imghint">Clique une pastille, ou directement sur l'image pour prélever un point précis.</p>
-        <div class="target" id="targetBox" hidden>
-          <p class="label" id="targetLabel" data-i18n="h.target">Un clic remplit</p>
-          <div class="seg" role="group" aria-labelledby="targetLabel" id="targetSeg">
-            <button type="button" data-v="1" aria-pressed="false" data-i18n="h.color1">Couleur 1</button>
-            <button type="button" data-v="2" aria-pressed="true" data-i18n="h.color2">Couleur 2</button>
-          </div>
-        </div>
+        <p class="hint" data-i18n="h.imghint">Clique une pastille, ou directement sur l'image, pour essayer sa couleur ; puis valide-la pour l'imposer.</p>
       </div>
 
       <div class="opts">
@@ -139,7 +140,7 @@
     </div>
   </section>
 
-  <section class="detail" id="accord" aria-live="polite">
+  <section class="detail reveal" id="accord" aria-live="polite">
     <div class="detail-info">
       <div class="step-head">
         <span class="step" aria-hidden="true">04</span>
@@ -185,13 +186,64 @@
       </div>
       <p class="hint" id="simHint"></p>
       <p class="hint" id="cvdHint"></p>
+      <div class="dcard photo-card" id="photoCard">
+        <p class="label" data-i18n="h.photo.k">Ta photo client</p>
+        <p class="hint" data-i18n="h.photo.hint">Dépose la photo d'une pièce ou d'un produit : l'outil la recolore avec l'accord en gardant ombres et matières. Elle reste dans ton navigateur.</p>
+        <div class="drop small" id="photoDrop">
+          <input type="file" id="photoFile" accept="image/*" aria-label="Choisir la photo du client" data-i18n-attr="aria-label=h.photo.aria">
+          <span data-i18n-html="h.photo.drop"><b>Dépose une photo</b> ou clique pour la choisir</span>
+        </div>
+        <div class="photo-box" id="photoBox" hidden>
+          <canvas id="photoCanvas" aria-label="Photo recolorée : clique une zone pour changer sa couleur" data-i18n-attr="aria-label=h.photo.canvas"></canvas>
+          <div class="photo-tools">
+            <div>
+              <p class="label" id="zonesLabel" data-i18n="h.photo.zones">Zones</p>
+              <div class="seg" role="group" aria-labelledby="zonesLabel" id="zonesSeg">
+                <button type="button" data-v="2" aria-pressed="false">2</button>
+                <button type="button" data-v="3" aria-pressed="false">3</button>
+                <button type="button" data-v="4" aria-pressed="false">4</button>
+                <button type="button" data-v="5" aria-pressed="false">5</button>
+                <button type="button" data-v="6" aria-pressed="false">6</button>
+              </div>
+            </div>
+            <label class="field range"><span class="label" data-i18n="h.photo.strength">Intensité</span><input type="range" id="photoStrength" min="0" max="100" value="85"></label>
+          </div>
+          <ul class="photo-zones" id="photoZones"></ul>
+          <p class="hint" data-i18n="h.photo.help">Clique une zone de la photo, ou une pastille, pour lui donner la couleur suivante de l'accord.</p>
+          <div class="actions">
+            <button class="btn ghost small" type="button" id="photoBefore" aria-pressed="false" data-i18n="h.photo.before">Voir l'original</button>
+            <button class="btn ghost small" type="button" id="photoReset" data-i18n="h.photo.reset">Zones par défaut</button>
+            <button class="btn small" type="button" id="photoPng" data-i18n="h.photo.png">Télécharger (PNG)</button>
+            <button class="btn ghost small" type="button" id="photoClear" data-i18n="h.photo.clear">Retirer la photo</button>
+          </div>
+        </div>
+      </div>
     </div>
   </section>
 
-  <section class="deliver" id="livrer" aria-labelledby="deliverTitle">
+  <section class="deliver reveal" id="livrer" aria-labelledby="deliverTitle">
     <div class="step-head">
       <span class="step" aria-hidden="true">06</span>
       <div><p class="label" data-i18n="h.deliver.kicker">Pour ton client et tes logiciels</p><h2 id="deliverTitle" data-i18n="h.deliver.title">Livrer</h2></div>
+    </div>
+    <div class="deliver-grid two">
+      <div class="dcard intent-card">
+        <div class="dcard-head"><label class="label" for="intent" data-i18n="h.intent">Note d'intention</label><button class="mini" type="button" id="intentRegen" data-i18n="h.intent.regen">Régénérer</button></div>
+        <textarea class="textin intent" id="intent" rows="6" maxlength="1500"></textarea>
+        <p class="hint" data-i18n="h.intent.hint">Rédigée à partir de l'accord, de sa source et de l'analyse pour ton métier. Retouche-la : elle figure sur la planche, le dossier et la vue client.</p>
+      </div>
+      <div class="dcard studio-card">
+        <p class="label" data-i18n="h.studio">Ton studio</p>
+        <div class="studio-row">
+          <label class="logo-drop" id="logoDrop"><img id="logoImg" alt="" hidden><span id="logoEmpty" data-i18n="h.studio.logo">Ton logo</span><input type="file" id="logoFile" accept="image/png,image/jpeg,image/webp,image/svg+xml" aria-label="Choisir ton logo" data-i18n-attr="aria-label=h.studio.logo.aria"></label>
+          <div class="studio-fields">
+            <div class="field"><label class="label" for="studioName" data-i18n="h.studio.name">Nom du studio</label><input class="textin" id="studioName" maxlength="80" autocomplete="organization"></div>
+            <div class="field"><label class="label" for="studioContact" data-i18n="h.studio.contact">Contact (email, site, téléphone)</label><input class="textin" id="studioContact" maxlength="120"></div>
+          </div>
+        </div>
+        <button class="mini" type="button" id="logoRemove" hidden data-i18n="h.studio.logo.rm">Retirer le logo</button>
+        <p class="hint" data-i18n="h.studio.hint">Sur la planche, le dossier de proposition et la vue client. Gardé dans ce navigateur.</p>
+      </div>
     </div>
     <div class="tablewrap" role="region" aria-labelledby="valsCaption" tabindex="0">
       <table class="vals">
@@ -228,10 +280,22 @@
         </div>
       </div>
     </div>
+    <div class="dcard scale-card">
+      <div class="dcard-head">
+        <p class="label" data-i18n="h.scale">Étendre en gamme</p>
+        <div class="actions">
+          <button class="btn ghost small" type="button" data-scale="css" data-i18n="h.scale.css">Copier en CSS</button>
+          <button class="btn ghost small" type="button" data-scale="tailwind">Tailwind (.css)</button>
+          <button class="btn ghost small" type="button" data-scale="tokens">Design tokens (.json)</button>
+        </div>
+      </div>
+      <p class="hint" data-i18n="h.scale.hint">11 paliers par couleur, du plus clair (50) au plus foncé (950), dans la même teinte. La couleur de l'accord est marquée ●. Pour une charte, une interface ou des déclinaisons.</p>
+      <div class="scales" id="scales"></div>
+    </div>
     <pre class="out" id="out"></pre>
   </section>
 
-  <section class="projects" id="bibliotheque" aria-labelledby="projTitle">
+  <section class="projects reveal" id="bibliotheque" aria-labelledby="projTitle">
     <div class="dict-head">
       <div class="step-head">
         <span class="step" aria-hidden="true">07</span>
@@ -240,12 +304,22 @@
       <div class="proj-tools">
         <div class="field"><label class="label" for="projSel" data-i18n="h.projsel">Projet ouvert</label><select id="projSel"></select></div>
         <div class="field"><label class="label" for="projName" data-i18n="h.projname">Nom du projet</label><input class="textin" id="projName" maxlength="60" autocomplete="off"></div>
+        <div class="field"><label class="label" for="projClient" data-i18n="h.projclient">Client</label><input class="textin" id="projClient" maxlength="80" autocomplete="off"></div>
         <button class="btn ghost" type="button" id="projNew" data-i18n="h.projnew">Nouveau projet</button>
         <button class="btn ghost" type="button" id="projDelete" data-i18n="h.projdel">Supprimer</button>
       </div>
     </div>
     <ul class="saved" id="saved"></ul>
     <p class="hint" id="savedHint"></p>
+    <div class="dcard pitch">
+      <p class="label" data-i18n="h.pitch">Proposition client</p>
+      <p class="hint" id="pitchHint" data-i18n="h.pitch.hint">Marque 1 à 3 accords comme Piste A, B ou C : ils forment le dossier et la vue client.</p>
+      <div class="actions">
+        <button class="btn" type="button" id="dossierBtn" data-i18n="h.dossier">Dossier de proposition (PDF)</button>
+        <button class="btn ghost" type="button" id="clientLinkBtn" data-i18n="h.clientlink">Lien pour le client</button>
+      </div>
+      <ul class="responses" id="responses"></ul>
+    </div>
     <div class="actions">
       <button class="btn ghost" type="button" id="projExport" data-i18n="h.projexport">Exporter le projet (.json)</button>
       <label class="btn ghost filebtn"><span data-i18n="h.projimport">Importer un projet</span><input type="file" id="projImport" accept=".json,application/json"></label>
@@ -256,7 +330,7 @@
     </details>
   </section>
 
-  <section class="dict" id="dictionnaire">
+  <section class="dict reveal" id="dictionnaire">
     <div class="dict-head">
       <div>
         <p class="label" id="dictKicker"></p>
@@ -276,17 +350,28 @@
 </main>
 <footer class="foot">
   <div class="foot-in">
-    <p><b>Accords Wada</b> — Manso Olivier · MAN MBAÏ LIKOL</p>
+    <p><b>La Chromathèque de Man Mbaï Likol</b> · <span data-i18n="h.tagline">l'atelier des accords de couleur</span></p>
+    <p class="note" data-i18n="h.byline">Conception : Man Mbaï Likol (Manso Olivier).</p>
     <p class="note" data-i18n-html="h.foot">Sanzo Wada (1883–1967), <i>Haishoku Sōkan</i>, 1933–1934, réédité par Seigensha sous le titre <i>A Dictionary of Color Combinations</i>. Les autres sources sont des interprétations MML, signalées comme telles. Illustrations : dessins originaux MML.</p>
   </div>
 </footer>
+<nav class="dock" aria-label="Actions rapides" data-i18n-attr="aria-label=h.dock">
+  <a class="dock-mark" href="#top" aria-label="Haut de page" data-i18n-attr="aria-label=h.dock.top"><span id="dockMark" aria-hidden="true"><i></i><i></i><i></i></span></a>
+  <button type="button" class="dock-btn" data-copy="link" data-i18n="h.dock.link">Lien</button>
+  <button type="button" class="dock-btn" id="dockSheet" data-i18n="h.dock.sheet">Planche</button>
+  <button type="button" class="dock-btn" id="dockFav" aria-pressed="false" data-i18n="h.dock.fav">Garder</button>
+  <button type="button" class="dock-btn" id="dockCalm" aria-pressed="false" title="Retire l'aura et les couleurs décoratives pour juger les teintes sans biais" data-i18n="h.dock.calm" data-i18n-attr="title=h.dock.calm.t">Fond neutre</button>
+</nav>
 <p class="toast" id="toast" role="status"></p>
 <img class="print-sheet" id="printSheet" alt="Planche de l'accord" data-i18n-attr="alt=h.sheet.alt">
+<div class="print-pages" id="printPages"></div>
 <script src="src/core.js"></script>
 <script src="src/i18n.js"></script>
 <script src="src/wada-data.js"></script>
 <script src="src/sources-data.js"></script>
 <script src="src/scenes.js"></script>
+<script src="src/proposal.js"></script>
+<script src="src/recolor.js"></script>
 <script src="src/app.js"></script>
 </body>
 </html>

@@ -1,10 +1,16 @@
-# Accords Wada
+# La Chromathèque de Man Mbaï Likol
 
-Choisis une couleur ou dépose une image : l'application propose les accords qui la contiennent (ou qui contiennent deux couleurs à la fois), avec proportions, contrastes et export (hex, CSS, prompt, tableau pour tableur).
+*L'atelier des accords de couleur* — conception : Man Mbaï Likol (Manso Olivier).
+
+Choisis une couleur ou dépose une image : l'application propose les accords qui la contiennent. Valide une ou deux couleurs pour les imposer (la charte d'un client, un tissu déjà choisi) : l'outil cherche alors les accords qui les contiennent et propose les compagnes, avec proportions, contrastes et export (hex, CSS, prompt, tableau pour tableur).
 
 Quatre sources : Sanzo Wada (*A Dictionary of Color Combinations*, 1933–34, par défaut), kasane no irome (Japon, époque Heian), traditions africaines (kente, peinture ndebele, bogolan, yoruba et adire) et règles d'harmonie calculées (Chevreul, Itten). Les sources autres que Wada sont des interprétations, signalées comme telles.
 
 Quinze métiers (graphiste, motion designer, directeur artistique, packaging, UX, UI, web, jeu, architecte d'intérieur, retail, scénographe, produit, transport, styliste, textile) : pour chacun, une mise en situation dessinée et quatre analyses (lisibilité, impression, vidéo, lumière, LRV, daltonisme, mélange optique…).
+
+Pour convaincre : une note d'intention rédigée depuis l'accord (retouchable), ton logo et ton studio sur les livrables, 1 à 3 pistes (A, B, C) réunies dans un dossier de proposition PDF (couverture, pistes, comparatif, valeurs, bon pour accord), et un lien client où ton client choisit sa piste et te renvoie sa réponse ; les statuts proposé / validé / refusé suivent chaque accord.
+
+Pour décliner : chaque couleur étendue en gamme de 11 paliers (CSS, Tailwind, tokens), et la photo de ton client (pièce, produit) recolorée avec l'accord, ombres et matières gardées.
 
 Pour tes clients : un lien partageable qui rouvre exactement l'accord, un tableau de valeurs (HEX, RGB, HSL, OKLCH, CMJN et LRV approximatifs) et une planche A4 en PNG ou en PDF via l'impression.
 
@@ -52,7 +58,7 @@ node --test
 
 | Dossier | Rôle |
 | --- | --- |
-| `src/` | `core.js` (fonctions pures), `i18n.js` (textes FR/EN), `scenes.js` (mises en situation), `sources-data.js` (autres sources), `app.js` (interface), styles, données Wada |
+| `src/` | `core.js` (fonctions pures), `i18n.js` (textes FR/EN), `scenes.js` (mises en situation), `sources-data.js` (autres sources), `proposal.js` (proposition client), `recolor.js` (gamme et photo), `app.js` (interface), styles, données Wada |
 | `accord/`, `en/accord/` | fiches statiques générées (ne pas modifier à la main) |
 | `tools/` | génération des fiches et des icônes |
 | `tests/` | tests des fonctions pures |

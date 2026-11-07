@@ -1,9 +1,10 @@
-/* Accords Wada — interface. Les fonctions pures (couleur, recherche, analyses, exports, liens) sont dans core.js,
+/* La Chromathèque de Man Mbaï Likol — interface. Les fonctions pures (couleur, recherche, analyses, exports, liens) sont dans core.js,
    les mises en situation dans scenes.js, les textes FR/EN dans i18n.js, les sources autres que Wada dans
    sources-data.js. Ce fichier gère l'état, le DOM, l'image, la planche, les projets et la PWA. */
 (function () {
   "use strict";
-  var C = window.WadaCore, I18N = window.WADA_I18N, SCENES = window.WadaScenes;
+  var C = window.WadaCore, I18N = window.WADA_I18N, SCENES = window.WadaScenes, EXT = window.ChromaExt || [];
+  function hook(name) { var args = Array.prototype.slice.call(arguments, 1); EXT.forEach(function (x) { if (x[name]) try { x[name].apply(x, args); } catch (e) { if (window.console) console.error(e); } }); }
   var toHex = C.toHex, lab = C.lab, labFromRgb = C.labFromRgb, linFromLab = C.linFromLab, delin = C.delin,
     dist = C.dist, readableOn = C.readableOn, towards = C.towards, shade = C.shade,
     parseHex = C.parseHex, values = C.values, PROPS = C.PROPS, readHash = C.readHash, hashOf = C.hashOf, keyOf = C.keyOf;
@@ -34,33 +35,40 @@
   }
   function srcName(src) { return t("src." + src + ".name"); }
   function entryOf(src, n) { var l = SRC[src].list; return l ? l[n - 1] : null; }
-  function ruleKey(n) { return C.RULES[n - 1] || C.RULES[0]; }
+  // Règles : à une couleur (rule.*) ou à deux couleurs imposées (rule2.*).
+  function ruleName(n, two) { var L = two ? C.RULES2 : C.RULES; return t((two ? "rule2." : "rule.") + (L[n - 1] || L[0])); }
+  function twoLocked() { return state.locked.length === 2; }
   // Nom court d'un accord : « n° 55 », « 紅梅 », « Kente · or, vert, noir », « Triade · Itten ».
-  function shortLabel(src, n) {
-    if (src === "regles") return t("rule." + ruleKey(n));
+  function shortLabel(src, n, two) {
+    if (src === "regles") return ruleName(n, two == null ? twoLocked() : two);
     var e = entryOf(src, n); if (!e) return num(n);
     return src === "kasane" ? e.jp : e[lang] || e.fr;
   }
-  function longLabel(src, n) {
+  function longLabel(src, n, two) {
     if (src === "wada") return "Sanzo Wada " + num(n);
-    if (src === "regles") return t("rule." + ruleKey(n));
+    if (src === "regles") return ruleName(n, two == null ? twoLocked() : two);
     var e = entryOf(src, n); if (!e) return num(n);
     return src === "kasane" ? e.jp + " " + (e[lang] || e.fr) : e[lang] || e.fr;
   }
   function rolesFor(src, k) { return src === "kasane" && k === 2 ? [t("role.kasane.0"), t("role.kasane.1")] : C.rolesOf(k, lang); }
 
   /* ---------- état ---------- */
-  var state = { source: "wada", seed: "#1448c8", seed2: null, multi: false, target: 2, size: 0, substitute: true, transpose: false, sel: 0, order: null, scene: "interieur", dictSize: 0, list: [], wantN: 0, wantOrder: null, light: 6500, vision: "normale" };
+  var state = { source: "wada", seed: "#1448c8", seed2: null, multi: false, draft: "#1448c8", locked: [], size: 0, substitute: true, transpose: false, sel: 0, order: null, scene: "interieur", dictSize: 0, list: [], wantN: 0, wantOrder: null, light: 6500, vision: "normale" };
   try {
     var saved = JSON.parse(localStorage.getItem("accords-wada") || "null");
-    if (saved && /^#[0-9a-f]{6}$/i.test(saved.seed)) { state.seed = saved.seed.toLowerCase(); state.size = saved.size || 0; state.scene = C.SCENES.indexOf(saved.scene) >= 0 ? saved.scene : "interieur"; }
-    if (saved && /^#[0-9a-f]{6}$/i.test(saved.seed2)) { state.seed2 = saved.seed2.toLowerCase(); state.multi = !!saved.multi; }
+    var hexOk = function (h) { return typeof h === "string" && /^#[0-9a-f]{6}$/i.test(h); };
+    if (saved && hexOk(saved.seed)) { state.draft = (hexOk(saved.draft) ? saved.draft : saved.seed).toLowerCase(); state.size = saved.size || 0; state.scene = C.SCENES.indexOf(saved.scene) >= 0 ? saved.scene : "interieur"; }
+    if (saved && Array.isArray(saved.locked)) state.locked = saved.locked.filter(hexOk).map(function (h) { return h.toLowerCase(); }).slice(0, 2);
+    else if (saved && saved.multi && hexOk(saved.seed) && hexOk(saved.seed2)) state.locked = [saved.seed.toLowerCase(), saved.seed2.toLowerCase()];  // ancienne « 2e couleur »
     if (saved && SRC[saved.source]) state.source = saved.source;
   } catch (e) {}
-  function save() { try { localStorage.setItem("accords-wada", JSON.stringify({ seed: state.seed, seed2: state.seed2, multi: state.multi, size: state.size, scene: state.scene, source: state.source })); } catch (e) {} }
+  // seed / seed2 / multi sont dérivés : couleurs imposées d'abord, sinon la couleur à essayer.
+  function sync() { state.seed = state.locked[0] || state.draft; state.seed2 = state.locked[1] || null; state.multi = state.locked.length === 2; }
+  sync();
+  function save() { try { localStorage.setItem("accords-wada", JSON.stringify({ seed: state.seed, draft: state.draft, locked: state.locked, size: state.size, scene: state.scene, source: state.source })); } catch (e) {} }
   // Un lien partagé passe avant la mémoire du navigateur.
   function takeLink(k) {
-    state.seed = k.seed; state.multi = !!k.seed2; if (k.seed2) state.seed2 = k.seed2;
+    state.draft = k.seed; state.locked = k.locked === 2 ? [k.seed, k.seed2] : k.locked === 1 ? [k.seed] : []; sync();
     state.size = k.size; state.substitute = k.substitute; state.transpose = k.transpose; state.scene = k.scene; state.source = k.source || "wada";
     state.wantN = k.n; state.wantOrder = k.order;
     if (k.lang) lang = k.lang;
@@ -70,10 +78,10 @@
   if (link) takeLink(link);
   function shareHash() {
     var cur = current();
-    return hashOf({ seed: state.seed, seed2: state.multi ? state.seed2 : null, n: cur ? cur.a.n : 0, order: state.order, size: state.size, substitute: state.substitute, transpose: state.transpose, scene: state.scene, source: state.source, lang: lang });
+    return hashOf({ seed: state.seed, seed2: state.multi ? state.seed2 : null, locked: state.locked.length, n: cur ? cur.a.n : 0, order: state.order, size: state.size, substitute: state.substitute, transpose: state.transpose, scene: state.scene, source: state.source, lang: lang });
   }
   function shareUrl() { return location.href.split("#")[0] + shareHash(); }
-  function updateLink() { try { history.replaceState(null, "", shareHash()); } catch (e) {} }
+  function updateLink() { if (/^#[pr]=/.test(location.hash)) return; try { history.replaceState(null, "", shareHash()); } catch (e) {} }
 
   var $ = function (id) { return document.getElementById(id); };
   function el(tag, attrs, kids) { var e = document.createElement(tag); if (attrs) for (var k in attrs) { if (k === "style") e.style.cssText = attrs[k]; else if (k === "text") e.textContent = attrs[k]; else e.setAttribute(k, attrs[k]); } (kids || []).forEach(function (c) { e.appendChild(c); }); return e; }
@@ -105,31 +113,73 @@
     });
   }
 
-  function setSeed(hex, keepImageChip) {
-    hex = hex.toLowerCase(); state.seed = hex; state.sel = 0; state.order = null;
-    $("picker").value = hex; $("hex").value = hex.toUpperCase(); $("hex").setAttribute("aria-invalid", "false");
-    if (!keepImageChip) document.querySelectorAll(".chip.on").forEach(function (c) { c.classList.remove("on"); });
+  function applyAccent() {
     var root = document.documentElement.style;
-    root.setProperty("--accent-l", towards(hex, "#f1f1ef", 3));
-    root.setProperty("--accent-d", towards(hex, "#161615", 3));
+    root.setProperty("--accent-l", towards(state.seed, "#f1f1ef", 3));
+    root.setProperty("--accent-d", towards(state.seed, "#161615", 3));
+  }
+  function showDraft() {
+    var hex = state.draft;
+    $("picker").value = hex; $("hex").value = hex.toUpperCase(); $("hex").setAttribute("aria-invalid", "false");
     $("seedname").textContent = nameOf(hex);
-    save(); refresh();
   }
-  function showSeed2() {
-    var hex = state.seed2;
-    $("picker2").value = hex; $("hex2").value = hex.toUpperCase(); $("hex2").setAttribute("aria-invalid", "false");
-    $("seedname2").textContent = nameOf(hex);
+  // Couleur à essayer : tant qu'aucune couleur n'est imposée, elle pilote la recherche en direct ;
+  // ensuite elle ne fait que préparer la prochaine validation.
+  function setSeed(hex, keepImageChip) {
+    state.draft = hex.toLowerCase(); showDraft();
+    if (!keepImageChip) document.querySelectorAll(".chip.on").forEach(function (c) { c.classList.remove("on"); });
+    renderLocks();
+    if (state.locked.length) { save(); return; }
+    sync(); state.sel = 0; state.order = null; applyAccent(); save(); refresh();
   }
-  function setSeed2(hex, keepImageChip) {
-    state.seed2 = hex.toLowerCase(); state.sel = 0; state.order = null; showSeed2();
-    if (!keepImageChip) document.querySelectorAll(".chip.on2").forEach(function (c) { c.classList.remove("on2"); });
-    save(); if (state.multi) refresh();
+  function relock(msg) {
+    state.sel = 0; state.order = null; state.wantN = 0;
+    if (twoLocked() && state.size === 2) { state.size = 0; setPressed("sizeSeg", 0); }
+    sync(); applyAccent(); save(); renderLocks(); renderSources(); applySourceUI(); refresh(); if (msg) toast(msg);
+  }
+  function lockDraft() {
+    var h = state.draft;
+    if (state.locked.length >= 2) { toast(t("lock.full")); return; }
+    if (state.locked.indexOf(h) >= 0) { toast(t("lock.same")); return; }
+    state.locked.push(h); relock(t("lock.added", { x: nameOf(h) + " " + h.toUpperCase() }));
+    if (state.locked.length === 1) {
+      // 2e couleur : on propose d'emblée une compagne de l'accord en tête, à valider ou à remplacer.
+      var top = state.list[0], sug = top && top.colors.filter(function (c) { return c.toLowerCase() !== h; })[0];
+      if (sug) {
+        state.draft = sug.toLowerCase(); showDraft(); renderLocks(); save();
+        toast(t("lock.added1", { x: nameOf(h) + " " + h.toUpperCase(), y: nameOf(sug) + " " + sug.toUpperCase() }));
+      }
+    }
+  }
+  function unlock(i) {
+    var h = state.locked[i]; state.locked.splice(i, 1);
+    relock(t("lock.removed", { x: nameOf(h) + " " + h.toUpperCase() }));
+  }
+  function renderLocks() {
+    var ul = $("lockedList"), n = state.locked.length; ul.textContent = "";
+    state.locked.forEach(function (h, i) {
+      var rm = el("button", { type: "button", class: "mini", "aria-label": t("lock.remove.aria", { x: nameOf(h) + " " + h.toUpperCase() }), text: "×" });
+      rm.addEventListener("click", function () { unlock(i); });
+      ul.appendChild(el("li", { class: "locked-item" }, [
+        el("span", { class: "locked-sw", "aria-hidden": "true", style: "background:" + h + ";color:" + readableOn(h).c }),
+        el("span", { class: "locked-what" }, [el("b", { text: h.toUpperCase() }), el("small", { text: t("lock.n", { i: i + 1 }) + " · " + nameOf(h) })]),
+        rm]));
+    });
+    if (n === 1) {
+      // Case vide de la 2e couleur : rappelle qu'on peut en imposer une seconde.
+      var slot = el("button", { type: "button", class: "locked-slot" }, [el("span", { class: "slot-sw", "aria-hidden": "true", style: "background:" + state.draft }), el("span", { text: t("lock.slot2") })]);
+      slot.addEventListener("click", function () { var pk = $("picker"); try { pk.showPicker(); } catch (e) { pk.click(); } });
+      ul.appendChild(el("li", null, [slot]));
+    }
+    var full = n >= 2, same = state.locked.indexOf(state.draft) >= 0, btn = $("lockBtn");
+    btn.disabled = full || same;
+    $("lockBtnText").textContent = full ? t("lock.btn.full") : same ? t("lock.btn.same") : n === 1 ? t("lock.btn2") : t("lock.btn");
+    var lab = t(n === 1 ? "lock.label2" : "lock.label1"); $("seedLabel").textContent = lab; $("picker").setAttribute("aria-label", lab);
+    $("lockedHint").textContent = t("lock.hint" + n);
+    $("panel").classList.toggle("has-locks", n > 0);
+    var two = $("sizeSeg").querySelector('[data-v="2"]'); two.disabled = full; two.title = full ? t("lock.no2") : "";
   }
   function setPressed(id, v) { $(id).querySelectorAll("button").forEach(function (b) { b.setAttribute("aria-pressed", String(b.dataset.v === String(v))); }); }
-  function applyMulti() {
-    $("multi").checked = state.multi; $("seed2").hidden = !state.multi; $("targetBox").hidden = !state.multi;
-    state.target = state.multi ? 2 : 1; setPressed("targetSeg", state.target);
-  }
 
   /* ---------- sources ---------- */
   function renderSources() {
@@ -140,7 +190,8 @@
         el("span", { class: "source-sw", "aria-hidden": "true" }, sample.map(function (cs) { return el("span", null, cs.map(function (c) { return el("i", { style: "background:" + c }); })); })),
         el("span", { class: "source-name", text: srcName(id) }),
         el("span", { class: "source-meta", text: t("src." + id + ".meta") }),
-        el("span", { class: "source-desc", text: t("src." + id + ".desc") })
+        el("span", { class: "source-desc", text: t("src." + id + ".desc") }),
+        el("span", { class: "card-foot" }, [el("span", { class: "score", text: t("src.pick", { s: "" }).trim() }), el("span", { class: "arrow", "aria-hidden": "true", text: "→" })])
       ]);
       b.addEventListener("click", function () { setSource(id); });
       box.appendChild(b);
@@ -161,20 +212,22 @@
 
   /* ---------- recherche et cartes ---------- */
   function computeAll() {
-    var two = state.multi && state.seed2, src = state.source, noSize = false, all;
+    var two = twoLocked(), src = state.source, noSize = false, all;
     if (src === "regles") {
-      all = C.ruleCombos(state.seed).map(function (r) { return { n: r.n, colors: r.colors, idx: 0, d: 0, sum: 0 }; });
+      all = (two ? C.ruleCombos2(state.locked[0], state.locked[1]) : C.ruleCombos(state.seed)).map(function (r) { return { n: r.n, colors: r.colors, idx: 0, d: 0, sum: 0 }; });
       var f = all.filter(function (r) { return !state.size || r.colors.length === state.size; });
       if (f.length) all = f; else noSize = true;
-      return { all: all, noSize: noSize, two: false };
+      return { all: all, noSize: noSize, two: two };
     }
-    var s = SRC[src].search;
-    all = s(state.seed, state.size, two ? state.seed2 : null);
-    if (!all.length && state.size) { all = s(state.seed, 0, two ? state.seed2 : null); noSize = true; }
-    return { all: all, noSize: noSize, two: two };
+    // Deux couleurs imposées : seuls les accords de 3 ou 4 couleurs apportent des compagnes.
+    var s = SRC[src].search, keep = function (r) { return !two || r.colors.length >= 3; };
+    var full = s(state.seed, state.size, two ? state.seed2 : null);
+    all = full.filter(keep);
+    if (!all.length && state.size) { full = s(state.seed, 0, two ? state.seed2 : null); all = full.filter(keep); noSize = true; }
+    return { all: all, full: full, noSize: noSize, two: two };
   }
   function build(r) {
-    if (state.source === "regles") return { n: r.n, wada: r.colors, d: 0, two: false, fid: "fidele", match: state.seed, colors: r.colors.slice(), rule: true };
+    if (state.source === "regles") return { n: r.n, wada: r.colors, d: 0, two: twoLocked(), fid: "fidele", match: state.seed, colors: r.colors.slice(), rule: true };
     return C.build(r, state.seed, state);
   }
   function refresh() {
@@ -183,7 +236,8 @@
     if (state.wantN) {
       // Accord demandé par un lien, un projet ou le dictionnaire : on l'ajoute s'il n'est pas dans les 12 premiers.
       var j = state.list.findIndex(function (a) { return a.n === state.wantN; });
-      if (j < 0) { var r = all.find(function (x) { return x.n === state.wantN; }); if (r) { state.list.push(build(r)); j = state.list.length - 1; } }
+      // Un ancien lien à deux couleurs peut viser un accord à 2 couleurs (n° 55) : on le rouvre tel quel.
+      if (j < 0) { var r = all.find(function (x) { return x.n === state.wantN; }) || (res.full || []).find(function (x) { return x.n === state.wantN; }); if (r) { state.list.push(build(r)); j = state.list.length - 1; } }
       if (j >= 0) {
         state.sel = j; var o = state.wantOrder, len = state.list[j].colors.length;
         state.order = o && o.length === len && o.slice().sort().join() === Object.keys(o).join() ? o : null;
@@ -191,11 +245,13 @@
       state.wantN = 0; state.wantOrder = null;
     }
     var hint;
-    if (state.source === "regles") hint = t(state.multi ? "res.rules.multi" : "res.rules", { n: all.length });
+    if (state.source === "regles") hint = t(res.two ? "res.rules2" : "res.rules", { n: all.length });
     else { var exact = all.filter(function (r) { return r.d <= 0.06; }).length, pre = res.two ? "res.two." : "res."; hint = t(pre + (exact === 0 ? "none" : exact === 1 ? "one" : "many"), { n: exact }); }
     if (res.noSize) hint = t("res.nosize") + " " + hint;
     if (state.source !== "wada" && state.source !== "regles") hint = hint.replace(/ dans le dictionnaire| in the dictionary/, "");
+    if (!all.length) hint = t(res.two && state.source === "kasane" ? "res.kasane2" : "res.empty");
     $("resultHint").textContent = hint;
+    $("accord").hidden = $("livrer").hidden = !state.list.length;
     var ul = $("cards"); ul.textContent = "";
     state.list.forEach(function (a, i) {
       var parts = PROPS[a.colors.length], f = a.rule ? t("tag.rule") : t("fid." + a.fid), src = state.source;
@@ -206,7 +262,8 @@
         sw,
         el("span", { class: "meta" }, [el("span", { class: "num", text: shortLabel(src, a.n) }), el("span", { class: "tag " + (a.rule ? "rule" : a.fid), text: f })]),
         sub ? el("span", { class: "sub", text: sub }) : null,
-        el("span", { class: "hexes", text: a.colors.join("  ").toUpperCase() })
+        el("span", { class: "hexes", text: a.colors.join("  ").toUpperCase() }),
+        el("span", { class: "card-foot" }, [el("span", { class: "score", text: a.rule ? t("tag.rule") : t("card.gap", { d: (a.d * 100).toFixed(1) }) }), el("span", { class: "arrow", "aria-hidden": "true", text: "→" })])
       ].filter(Boolean));
       b.addEventListener("click", function () { state.sel = i; state.order = null; refreshCards(); renderDetail(); });
       ul.appendChild(el("li", null, [b]));
@@ -231,9 +288,21 @@
       art.appendChild(el("i", { style: "grid-area:" + b[0] + ";background:" + (i === 5 ? shade(pick(0), -0.12) : pick(b[1])) }));
     });
     art.appendChild(el("b", { style: "background:" + pick(2) }));
-    var mk = $("brandMark").children; for (var i = 0; i < mk.length; i++) mk[i].style.background = pick(i);
+    var rs = document.documentElement.style; for (var c = 0; c < 4; c++) rs.setProperty("--c" + (c + 1), pick(c));
+    ["brandMark", "dockMark"].forEach(function (id) { var mk = $(id).children; for (var i = 0; i < mk.length; i++) mk[i].style.background = pick(i); });
+    $("heroCardT").textContent = cur ? (state.source === "wada" ? "Sanzo Wada " + num(cur.a.n) : longLabel(state.source, cur.a.n)) + " — " + cs.map(nameOf).join(", ") : "";
+    updateToolbar();
   }
 
+  // Barre de réglages (couleur, source, métier) et bandeau défilant, à la manière d'une barre de filtres.
+  function updateToolbar() {
+    $("tbSeed").style.background = state.seed; $("tbSeedV").textContent = state.seed.toUpperCase();
+    $("tbSrc").textContent = srcName(state.source); $("tbJob").textContent = t("job." + state.scene);
+  }
+  function renderTicker() {
+    var tr = $("ticker"), items = t("ticker").split("|"); tr.textContent = "";
+    for (var k = 0; k < 2; k++) items.forEach(function (x) { tr.appendChild(el("span", { text: x })); tr.appendChild(el("i", { text: "✳" })); });
+  }
   function current() {
     var a = state.list[state.sel]; if (!a) return null;
     var order = state.order || a.colors.map(function (_, i) { return i; });
@@ -255,12 +324,12 @@
     var roles = rolesFor(src, cs.length);
     var rows = $("rows"); rows.textContent = "";
     cs.forEach(function (c, i) {
-      var lc = c.toLowerCase(), r = readableOn(c), mine = (state.substitute || a.rule) && (lc === state.seed || (a.two && lc === state.seed2));
+      var lc = c.toLowerCase(), r = readableOn(c), mine = (state.substitute || a.rule) && (lc === state.seed || (a.two && lc === state.seed2)), imposed = state.locked.indexOf(lc) >= 0;
       var copy = el("button", { type: "button", class: "mini", text: t("copy") });
       copy.addEventListener("click", function () { doCopy(c.toUpperCase(), t("copied", { x: c.toUpperCase() })); });
       rows.appendChild(el("div", { class: "row" }, [
         el("span", { class: "dot", style: "background:" + c + ";color:" + r.c, title: t("contrast.title", { r: r.r.toFixed(1) }), text: "Aa" }),
-        el("span", { class: "what" }, [el("b", { text: c.toUpperCase() }), document.createTextNode("  " + roles[i] + " · " + parts[i] + " %" + (mine ? t("yours") : "")),
+        el("span", { class: "what" }, [el("b", { text: c.toUpperCase() }), document.createTextNode("  " + roles[i] + " · " + parts[i] + " %" + (imposed ? t("yours.locked") : mine ? t("yours") : "")),
           el("small", { text: nameOf(c) + " · " + textOn(r) })]),
         copy
       ]));
@@ -275,6 +344,7 @@
     renderArt();
     renderScene();
     updateFav(); recordHistory();
+    hook("detail", cur);
   }
   function sim(c) { return state.light === 6500 && state.vision === "normale" ? c : C.simulate(c, state.light, state.vision); }
   function renderSimNotes(cs) {
@@ -332,11 +402,13 @@
     $("jobDesc").textContent = t("job." + state.scene + ".d");
     $("scene").innerHTML = sceneSvg(cur.colors.map(sim), cur.a.n);
     $("sceneHint").textContent = t("scene." + state.scene);
+    updateToolbar();
     var ul = $("impact"); ul.textContent = "";
     jobLines(cur.colors).forEach(function (l) { ul.appendChild(el("li", { class: "chk " + l.lv }, [el("span", { class: "ico", "aria-hidden": "true", text: l.lv === "ok" ? "✓" : l.lv === "warn" ? "!" : "i" }), el("span", { text: l.text })])); });
     ul.appendChild(el("li", { class: "chk note", text: t("chk.approx") }));
     renderSimNotes(cur.colors);
     updateLink();
+    hook("scene", cur);
   }
 
   /* ---------- copies et exports ---------- */
@@ -375,7 +447,7 @@
 
   /* ---------- planche client : A4 paysage, 300 dpi (dessinée en unités de 1754 × 1240, puis ×2) ---------- */
   var SHEET = { w: 1754, h: 1240, scale: 2, m: 72, bg: "#f4f4f2", ink: "#1b1b19", muted: "#5d5d58", line: "#d9d9d5" };
-  var FONT = { display: '"Shippori Mincho", Georgia, serif', body: '"Zen Kaku Gothic New", "Segoe UI", sans-serif', mono: '"IBM Plex Mono", Consolas, monospace' };
+  var FONT = { display: '"Bricolage Grotesque", "Shippori Mincho", "Segoe UI", sans-serif', body: '"Plus Jakarta Sans", "Segoe UI", sans-serif', mono: '"IBM Plex Mono", Consolas, monospace' };
   function svgImage(svg) {
     return new Promise(function (ok, ko) {
       var img = new Image(); img.onload = function () { ok(img); }; img.onerror = ko;
@@ -387,6 +459,15 @@
     words.forEach(function (w) { var s = line ? line + " " + w : w; if (ctx.measureText(s).width > maxW && line) { ctx.fillText(line, x, y); y += lh; line = w; } else line = s; });
     if (line) { ctx.fillText(line, x, y); y += lh; }
     return y;
+  }
+  // Texte sur maxLines lignes au plus, la dernière coupée par « … ».
+  function wrapMax(ctx, text, x, y, maxW, lh, maxLines) {
+    var words = String(text).split(/\s+/), lines = [], line = "";
+    words.forEach(function (w) { var s2 = line ? line + " " + w : w; if (ctx.measureText(s2).width > maxW && line) { lines.push(line); line = w; } else line = s2; });
+    if (line) lines.push(line);
+    if (lines.length > maxLines) { lines = lines.slice(0, maxLines); lines[maxLines - 1] = fitText(ctx, lines[maxLines - 1] + " …", maxW); }
+    lines.forEach(function (l, i) { ctx.fillText(l, x, y + i * lh); });
+    return y + lines.length * lh;
   }
   function fitText(ctx, text, maxW) { if (ctx.measureText(text).width <= maxW) return text; while (text.length > 4 && ctx.measureText(text + "…").width > maxW) text = text.slice(0, -1); return text + "…"; }
   function sheetHead(a) {
@@ -410,6 +491,11 @@
       var title = state.source === "wada" ? cs.map(nameOf).join(" · ") : longLabel(state.source, a.n), size = 54;
       do { x.font = "700 " + size + "px " + FONT.display; size -= 2; } while (x.measureText(title).width > S.w - 2 * M && size > 26);
       x.fillStyle = S.ink; x.fillText(title, M, M + 36);
+      var ST = window.ChromaStudio, studio = ST ? ST.get() : {}, logo = ST ? ST.logo() : null;
+      if (logo) { var lh = 64, lw = Math.min(260, logo.width * lh / logo.height); x.drawImage(logo, S.w - M - lw, M - 8, lw, lh); }
+      else if (studio.name) { x.font = "800 22px " + FONT.display; x.fillStyle = S.ink; var sw2 = x.measureText(studio.name).width; x.fillText(studio.name, S.w - M - sw2, M); }
+      var intent = ST ? ST.intent() : "";
+      if (intent) { x.fillStyle = S.muted; x.font = "italic 400 15px " + FONT.body; wrapMax(x, intent, M, M + 98, S.w - 2 * M, 20, 2); }
 
       // Bande de proportions
       var top = 220, bandH = 380, bx = M;
@@ -427,7 +513,7 @@
         var cx = M + colW * i, v = values(c), y = y0, maxW = colW - 20;
         x.fillStyle = c; x.fillRect(cx, y, 56, 56); x.strokeStyle = S.line; x.strokeRect(cx + 0.5, y + 0.5, 55, 55);
         y += 74;
-        x.fillStyle = S.ink; x.font = "700 18px " + FONT.body; x.fillText(fitText(x, roles[i] + " · " + parts[i] + " %", maxW), cx, y); y += 26;
+        x.fillStyle = S.ink; x.font = "700 18px " + FONT.body; x.fillText(fitText(x, roles[i] + " · " + parts[i] + " %" + (state.locked.indexOf(c.toLowerCase()) >= 0 ? t("sheet.locked") : ""), maxW), cx, y); y += 26;
         x.fillStyle = S.muted; x.font = "400 16px " + FONT.body; x.fillText(fitText(x, nameOf(c), maxW), cx, y); y += 34;
         [["HEX", v.hex], ["RGB", v.rgb], ["HSL", v.hsl], ["OKLCH", v.oklch], [t("cmyk"), v.cmjn], ["LRV ≈", v.lrv]].forEach(function (r) {
           x.font = "400 13px " + FONT.mono; x.fillStyle = S.muted; x.fillText(r[0], cx, y);
@@ -445,17 +531,20 @@
       hy = wrapText(x, t("scene." + state.scene), RX, hy + 2, RW, 20);
       var rd = readableOn(cs[0]);
       hy = wrapText(x, t("sheet.legible", { c: t(rd.c === "#ffffff" ? "white" : "black"), r: rd.r.toFixed(1), t: rd.r < 4.5 ? t("titles.only") : "" }), RX, hy + 6, RW, 20);
-      jobLines(cs).forEach(function (l) { if (hy < S.h - M - 90) hy = wrapText(x, (l.lv === "ok" ? "✓ " : l.lv === "warn" ? "! " : "· ") + l.text, RX, hy + 6, RW, 20); });
+      jobLines(cs).forEach(function (l) { if (hy < S.h - M - 110) hy = wrapText(x, (l.lv === "ok" ? "✓ " : l.lv === "warn" ? "! " : "· ") + l.text, RX, hy + 6, RW, 20); });
 
       // Pied de planche
-      var fy = S.h - M - 58;
+      var fy = S.h - M - 78;
       x.fillStyle = S.line; x.fillRect(M, fy, S.w - 2 * M, 1);
       x.fillStyle = S.muted; x.font = "400 13px " + FONT.body;
       x.fillText(fitText(x, t(state.source === "wada" ? "sheet.foot" : "sheet.foot.src"), S.w - 2 * M), M, fy + 14);
       x.font = "400 12px " + FONT.mono;
-      var date = new Date().toLocaleDateString(t("locale")), right = "Accords Wada — Manso Olivier · MAN MBAÏ LIKOL", rw = x.measureText(right).width;
-      x.fillText(fitText(x, t("sheet.date", { d: date }) + " · " + shareUrl(), S.w - 2 * M - rw - 40), M, fy + 38);
-      x.fillText(right, S.w - M - rw, fy + 38);
+      var date = new Date().toLocaleDateString(t("locale")), pj = project(), who = [pj.client ? t("sheet.client", { c: pj.client }) : "", pj.name].filter(Boolean).join(" · ");
+      var right = [studio.name, studio.contact].filter(Boolean).join(" · "), rw = right ? x.measureText(right).width : 0;
+      x.fillText(fitText(x, t("sheet.date", { d: date }) + (who ? " · " + who : ""), S.w - 2 * M - rw - 40), M, fy + 38);
+      if (right) x.fillText(right, S.w - M - rw, fy + 38);
+      x.fillStyle = S.muted; x.font = "400 11px " + FONT.body;
+      x.fillText(fitText(x, t("sheet.credit") + " · " + shareUrl(), S.w - 2 * M), M, fy + 60);
       return cv;
     });
   }
@@ -495,7 +584,6 @@
   seg("lightSeg", "light", renderDetail);
   seg("visionSeg", "vision", renderDetail);
   seg("dictSeg", "dictSize", renderDict);
-  seg("targetSeg", "target", function () {});
   $("langSeg").querySelectorAll("button").forEach(function (b) {
     b.addEventListener("click", function () {
       if (b.dataset.v === lang) return;
@@ -508,34 +596,15 @@
   /* ---------- saisie couleur ---------- */
   $("picker").addEventListener("input", function (e) { setSeed(e.target.value); });
   $("hex").addEventListener("input", function (e) { var v = parseHex(e.target.value); if (v) setSeed(v); else e.target.setAttribute("aria-invalid", "true"); });
-  $("picker2").addEventListener("input", function (e) { setSeed2(e.target.value); });
-  $("hex2").addEventListener("input", function (e) { var v = parseHex(e.target.value); if (v) setSeed2(v); else e.target.setAttribute("aria-invalid", "true"); });
-  $("multi").addEventListener("change", function (e) {
-    state.multi = e.target.checked; state.sel = 0; state.order = null;
-    document.querySelectorAll(".chip.on2").forEach(function (c) { c.classList.remove("on2"); });
-    if (state.multi) {
-      // Image chargée : sa 2e couleur marquante ; sinon la première compagne de l'accord en tête.
-      var second = imgClusters.length ? secondCluster(imgClusters.lead) : null;
-      if (second) { state.seed2 = second.hex; markChip(second, "on2"); }
-      else if (!state.seed2) state.seed2 = state.list[0] ? state.list[0].wada.filter(function (c) { return c !== state.list[0].match; })[0] : "#e8dcc0";
-      showSeed2();
-    }
-    applyMulti(); renderDict(); save(); refresh();
-  });
+  $("hex").addEventListener("keydown", function (e) { if (e.key === "Enter") { e.preventDefault(); lockDraft(); } });
+  $("lockBtn").addEventListener("click", lockDraft);
   $("substitute").addEventListener("change", function (e) { state.substitute = e.target.checked; refresh(); });
   $("transpose").addEventListener("change", function (e) { state.transpose = e.target.checked; refresh(); });
 
   /* ---------- image : extraction des couleurs (k-moyennes en OKLab) ---------- */
   var canvas = $("canvas"), ctx = canvas.getContext("2d", { willReadFrequently: true }), imgClusters = [];
-  function pickFromImage(hex, chip) {
-    if (state.multi && state.target === 2) { setSeed2(hex); if (chip) chip.classList.add("on2"); }
-    else { setSeed(hex); if (chip) chip.classList.add("on"); }
-  }
+  function pickFromImage(hex, chip) { setSeed(hex); if (chip) chip.classList.add("on"); }
   function markChip(cluster, cls) { var i = imgClusters.indexOf(cluster), ch = $("chips").children[i]; if (ch) ch.classList.add(cls); }
-  function secondCluster(lead) {
-    var L = lab(lead.hex), others = imgClusters.filter(function (c) { return c !== lead; });
-    return others.find(function (c) { return dist(lab(c.hex), L) > 0.1; }) || others[0] || null;
-  }
   function loadFile(f) {
     if (!f || !/^image\//.test(f.type)) { toast(t("img.notimage")); return; }
     var url = URL.createObjectURL(f), img = new Image();
@@ -568,10 +637,8 @@
     });
     var lead = clusters.find(function (c) { return c.C > 0.04; }) || clusters[0];
     imgClusters = clusters; imgClusters.lead = lead;
-    var second = state.multi ? secondCluster(lead) : null;
-    if (second) { state.seed2 = second.hex; showSeed2(); save(); markChip(second, "on2"); }
     setSeed(lead.hex); markChip(lead, "on");
-    toast(second ? t("img.two", { a: nameOf(lead.hex), b: nameOf(second.hex) }) : t("img.one", { a: nameOf(lead.hex) }));
+    toast(t("img.one", { a: nameOf(lead.hex) }));
   }
   canvas.addEventListener("click", function (e) {
     var r = canvas.getBoundingClientRect(), x = Math.round((e.clientX - r.left) / r.width * canvas.width), y = Math.round((e.clientY - r.top) / r.height * canvas.height);
@@ -596,13 +663,12 @@
     if (rules) return;
     SRC[src].combos.forEach(function (c, i) {
       if (state.dictSize && c.length !== state.dictSize) return;
-      var n = i + 1, aria = src === "wada" ? t(state.multi ? "dict.aria2" : "dict.aria", { n: n, list: c.join(", ") }) : t("dict.aria.src", { name: longLabel(src, n), list: c.join(", ") });
+      var n = i + 1, aria = src === "wada" ? t("dict.aria", { n: n, list: c.join(", ") }) : t("dict.aria.src", { name: longLabel(src, n), list: c.join(", ") });
       var b = el("button", { type: "button", "aria-label": aria }, [
         el("span", { class: "sw" }, c.map(function (x) { return el("i", { style: "background:" + x }); })), el("span", { text: shortLabel(src, n) })]);
       b.addEventListener("click", function () {
-        if (state.multi) { state.seed2 = c[1]; showSeed2(); document.querySelectorAll(".chip.on2").forEach(function (x) { x.classList.remove("on2"); }); }
         state.wantN = n;
-        setSeed(c[0]);
+        if (state.locked.length) refresh(); else setSeed(c[0]);  // les couleurs imposées restent
         $("accord").scrollIntoView({ behavior: smooth() });
       });
       g.appendChild(el("li", src === "wada" ? null : { class: "wide" }, [b]));
@@ -646,7 +712,19 @@
   // Les accords gardés ne mémorisent pas la langue : un projet s'ouvre dans la langue de l'interface.
   function snapshot() { var cur = current(), h = C.readHash(shareHash()); h.lang = null; return { hash: hashOf(h), n: cur.a.n, colors: cur.colors.slice() }; }
   function inProject() { var key = keyOf(shareHash()); return project().items.findIndex(function (it) { return keyOf(it.hash) === key; }); }
-  function updateFav() { $("fav").setAttribute("aria-pressed", String(inProject() >= 0)); }
+  function updateFav() { var on = String(inProject() >= 0); $("fav").setAttribute("aria-pressed", on); $("dockFav").setAttribute("aria-pressed", on); }
+  $("dockFav").addEventListener("click", function () { $("fav").click(); });
+  // Fond neutre : préférence d'affichage mémorisée (pas dans le lien).
+  var CALM_KEY = "accords-wada-calme";
+  function setCalm(on) { document.documentElement.classList.toggle("calm", on); $("dockCalm").setAttribute("aria-pressed", String(on)); try { localStorage.setItem(CALM_KEY, on ? "1" : "0"); } catch (e) {} }
+  try { if (localStorage.getItem(CALM_KEY) === "1") setCalm(true); } catch (e) {}
+  $("dockCalm").addEventListener("click", function () { setCalm(!document.documentElement.classList.contains("calm")); });
+  // Apparition des sections au défilement
+  if ("IntersectionObserver" in window) {
+    var io = new IntersectionObserver(function (es) { es.forEach(function (e) { if (e.isIntersecting) { e.target.classList.add("in"); io.unobserve(e.target); } }); }, { rootMargin: "0px 0px -8% 0px" });
+    document.querySelectorAll(".reveal").forEach(function (s) { io.observe(s); });
+  } else document.querySelectorAll(".reveal").forEach(function (s) { s.classList.add("in"); });
+  $("dockSheet").addEventListener("click", function () { $("sheetPng").click(); });
   var histTimer = 0;
   function recordHistory() {
     clearTimeout(histTimer);
@@ -663,7 +741,7 @@
     if (location.hash !== h) location.hash = h;
     $("accord").scrollIntoView({ behavior: smooth() });
   }
-  function itemLabel(it) { var k = readHash(it.hash), src = k ? k.source : "wada"; return src === "wada" ? num(it.n) : srcName(src) + " · " + shortLabel(src, it.n); }
+  function itemLabel(it) { var k = readHash(it.hash), src = k ? k.source : "wada"; return src === "wada" ? num(it.n) : srcName(src) + " · " + shortLabel(src, it.n, !!(k && k.seed2)); }
   function accordItem(it, opts) {
     var parts = PROPS[it.colors.length] || [], label = itemLabel(it);
     var open = el("button", { type: "button", class: "saved-open", "aria-label": t("proj.open", { n: label, list: it.colors.join(", ") }) }, [
@@ -678,15 +756,18 @@
       kids.push(note);
     }
     if (opts.remove) { var rm = el("button", { type: "button", class: "mini", text: t("proj.remove"), "aria-label": t("proj.remove.aria", { n: label }) }); rm.addEventListener("click", opts.remove); kids.push(rm); }
-    return el("li", { class: "saved-item" }, kids);
+    var li = el("li", { class: "saved-item" + (it.piste ? " has-piste" : "") }, kids);
+    if (opts.note) hook("item", it, li, label);
+    return li;
   }
   function renderProjects() {
     var sel = $("projSel"), p = project(); sel.textContent = "";
     store.projects.forEach(function (q) { var o = el("option", { value: q.id, text: q.name + " (" + q.items.length + ")" }); if (q.id === p.id) o.selected = true; sel.appendChild(o); });
-    $("projName").value = p.name;
+    $("projName").value = p.name; $("projClient").value = p.client || "";
     var ul = $("saved"); ul.textContent = "";
     p.items.forEach(function (it, i) { ul.appendChild(accordItem(it, { note: true, remove: function () { p.items.splice(i, 1); persist(); renderProjects(); updateFav(); } })); });
     $("savedHint").textContent = (p.items.length ? "" : t("proj.empty")) + (storeOk ? "" : t("proj.nostore"));
+    hook("projects", p);
   }
   function renderHistory() {
     var ul = $("history"); ul.textContent = "";
@@ -698,7 +779,7 @@
   $("fav").addEventListener("click", function () {
     var p = project(), i = inProject();
     if (i >= 0) { p.items.splice(i, 1); toast(t("proj.out", { p: p.name })); }
-    else { var s = snapshot(); s.note = ""; s.added = new Date().toISOString(); p.items.unshift(s); toast(t("proj.in", { p: p.name })); }
+    else { var s = snapshot(); s.note = ""; s.added = new Date().toISOString(); var ST = window.ChromaStudio; s.intent = ST ? ST.edited(s.hash) : ""; p.items.unshift(s); toast(t("proj.in", { p: p.name })); }
     persist(); updateFav(); renderProjects();
   });
   $("projSel").addEventListener("change", function (e) { store.current = e.target.value; persist(); renderProjects(); updateFav(); });
@@ -706,6 +787,7 @@
     var v = e.target.value.trim(); if (!v) { e.target.value = project().name; return; }
     project().name = v.slice(0, 60); persist(); renderProjects();
   });
+  $("projClient").addEventListener("change", function (e) { project().client = e.target.value.trim().slice(0, 80); persist(); });
   $("projNew").addEventListener("click", function () {
     var id = newId(); store.projects.push({ id: id, name: t("proj.n", { n: store.projects.length + 1 }), items: [] }); store.current = id;
     persist(); renderProjects(); updateFav(); $("projName").focus(); $("projName").select();
@@ -720,7 +802,7 @@
   });
   $("projExport").addEventListener("click", function () {
     var p = project();
-    download(slug(p.name) + ".accords-wada.json", JSON.stringify({ format: "accords-wada-projet", version: 1, name: p.name, exported: new Date().toISOString(), items: p.items }, null, 2) + "\n", "application/json");
+    download(slug(p.name) + ".chromatheque.json", JSON.stringify({ format: "accords-wada-projet", version: 1, name: p.name, client: p.client || "", exported: new Date().toISOString(), items: p.items }, null, 2) + "\n", "application/json");
     toast(t("proj.exported", { p: p.name }));
   });
   $("projImport").addEventListener("change", function (e) {
@@ -730,7 +812,7 @@
       var items = C.cleanItems(d.items).map(function (it) { delete it.source; return it; }); if (!items.length) throw new Error("vide");
       var name = typeof d.name === "string" && d.name.trim() ? d.name.trim().slice(0, 60) : t("proj.importname");
       if (store.projects.some(function (q) { return q.name === name; })) name = (name + " (import)").slice(0, 60);
-      var id = newId(); store.projects.push({ id: id, name: name, items: items }); store.current = id;
+      var id = newId(); store.projects.push({ id: id, name: name, client: typeof d.client === "string" ? d.client.trim().slice(0, 80) : "", items: items }); store.current = id;
       persist(); renderProjects(); updateFav();
       toast(t(items.length > 1 ? "proj.imported.many" : "proj.imported.one", { p: name, k: items.length }));
     }).catch(function () { toast(t("proj.bad")); });
@@ -752,22 +834,39 @@
   /* ---------- démarrage ---------- */
   function applyLang() {
     applyStatic(); setPressed("langSeg", lang);
-    if (state.seed2) showSeed2();
-    renderSources(); renderJobs(); applySourceUI();
+    renderTicker(); renderSources(); renderJobs(); applySourceUI();
     renderDict(); renderProjects(); renderHistory();
-    setSeed(state.seed, true);
+    showDraft(); renderLocks(); sync(); applyAccent(); refresh();
+    hook("lang");
   }
   function start() {
     $("substitute").checked = state.substitute; $("transpose").checked = state.transpose;
     setPressed("sizeSeg", state.size);
-    applyMulti();
     applyLang();  // setSeed → refresh() sélectionne l'accord demandé par le lien (state.wantN)
   }
   // Lien collé dans un onglet déjà ouvert, ou accord rouvert depuis un projet
   window.addEventListener("hashchange", function () {
     if (location.hash === shareHash()) return;
     var k = readHash(location.hash); if (!k) return;
-    takeLink(k); document.querySelectorAll(".chip.on, .chip.on2").forEach(function (c) { c.classList.remove("on", "on2"); }); start();
+    takeLink(k); document.querySelectorAll(".chip.on").forEach(function (c) { c.classList.remove("on"); }); start();
   });
+  // Informations d'un accord gardé (dossier, vue client) : libellés, fidélité, analyses du métier de son lien.
+  function itemInfo(it) {
+    var k = readHash(it.hash) || {}, src = SRC[k.source] ? k.source : "wada", two = !!k.seed2, cs = it.colors, scene = k.scene || "interieur", fid = "";
+    if (src === "regles") fid = t("tag.rule");
+    else { var r = k.seed ? SRC[src].search(k.seed, 0, k.seed2 || null).find(function (x) { return x.n === it.n; }) : null; if (r) fid = t("fid." + C.fid(r.d)); }
+    var e = entryOf(src, it.n);
+    return { hash: it.hash, n: it.n, src: src, two: two, colors: cs, scene: scene, seed: k.seed, srcName: srcName(src), fid: fid,
+      title: src === "wada" ? "Sanzo Wada " + num(it.n) : longLabel(src, it.n, two), group: e ? e.g[lang] : "", roles: rolesFor(src, cs.length), parts: PROPS[cs.length],
+      checks: C.jobChecks(scene, cs).map(function (c) { return { lv: c.lv, text: checkText(c) }; }), piste: it.piste || "", intent: it.intent || "" };
+  }
+  window.ChromaApp = {
+    C: C, t: t, lang: function () { return lang; }, nameOf: nameOf, num: num, el: el, $: $, toast: toast, download: download, doCopy: doCopy,
+    svgImage: svgImage, wrapText: wrapText, wrapMax: wrapMax, fitText: fitText, SHEET: SHEET, FONT: FONT, SCENES: SCENES,
+    state: state, current: current, shareHash: shareHash, sim: sim, checkText: checkText, itemInfo: itemInfo,
+    project: project, store: function () { return store; }, persist: persist, renderProjects: renderProjects, newId: newId, slug: slug,
+    currentInfo: function () { var cur = current(); if (!cur) return null; var h = shareHash(), i = itemInfo({ hash: h, n: cur.a.n, colors: cur.colors }); i.fid = cur.a.rule ? t("tag.rule") : t("fid." + cur.a.fid); return i; }
+  };
+  EXT.forEach(function (x) { if (x.init) x.init(window.ChromaApp); });
   start();
 })();
