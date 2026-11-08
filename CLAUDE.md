@@ -87,7 +87,8 @@
 
 - Interface en **français** (référence), tutoiement, phrases courtes et concrètes. Version **anglaise** dans `src/i18n.js` : tout nouveau texte va dans les deux langues, jamais en dur dans `app.js`. Langue : lien (`lg=`) > choix mémorisé > langue du navigateur. Le nom « La Chromathèque de Man Mbaï Likol » ne se traduit pas (seul le sous-titre se traduit) ; nom court : « La Chromathèque ». Les identifiants techniques gardent l'ancien nom pour ne rien casser : clés `localStorage` `accords-wada*`, format d'import `accords-wada-projet`, cache `accords-wada-v*`, `window.WadaCore`.
 - JavaScript sans dépendance ni framework, compatible navigateur sans build. Toute fonction pure va dans `core.js`, avec un test dans `tests/`.
-- Si `data/`, `core.js` ou les textes des fiches changent : relancer `node tools/generate-pages.js` (avec `--base=` une fois le site en ligne).
+- Si `data/`, `core.js` ou les textes des fiches changent : relancer `node tools/generate-pages.js` avec `--base=https://manmbailikol.github.io/chromatheque/`.
+- **En ligne** : https://manmbailikol.github.io/chromatheque/ (GitHub Pages, dépôt `ManMbaiLikol/chromatheque`, branche `main`, dossier racine). Un push sur `main` met le site à jour en une à deux minutes.
 - Contraste : texte ≥ 4.5:1, signalé « titres seulement » en dessous.
 - Accessibilité : focus visible, `aria-pressed` sur les boutons bascule, `prefers-reduced-motion` respecté, pas de défilement horizontal à 400 px.
 - Fond d'interface gris neutre : ne pas teinter les surfaces de travail (panneau, cartes, mises en situation), pour juger les couleurs sans biais. La vie vient de décors aux couleurs de l'accord en cours (`--c1`…`--c4`) : aura animée derrière l'en-tête, filet en tête des bandes, numéros d'étape, trame de points neutre. Surfaces en verre translucide (glassmorphism : `--glass`, flou `backdrop-filter`, liseré clair) sur un dégradé gris doux, avec des reflets fixes de l'accord derrière la page. Le bouton « Fond neutre » du dock (`html.calm`, mémorisé dans `accords-wada-calme`) retire tous ces décors et rend les surfaces opaques.
@@ -103,5 +104,4 @@ Lancer `node --test` (tout doit passer). Servir le dossier (`python -m http.serv
 - Matrice de contraste WCAG de toutes les paires, proportions réglables.
 - Fiche fournisseur : valeurs cibles, finition, tolérance ΔE, contrôle des échantillons reçus.
 - Owen Jones (*Grammar of Ornament*, 1856), William Morris, E.-A. Séguy : palettes à relever sur des planches du domaine public (sources citées), annoncées « en préparation » sur la page.
-- Mise en ligne (GitHub Pages ou Netlify), puis régénérer les fiches avec `--base=` pour le sitemap.
 - Image Open Graph par accord pour les partages sur les réseaux.
