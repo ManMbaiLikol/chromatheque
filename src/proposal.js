@@ -121,10 +121,105 @@
     if (it.piste) li.insertBefore(el("span", { class: "piste-badge", "aria-hidden": "true", text: it.piste }), li.firstChild);
     li.appendChild(row);
   }
-  function renderPitch(p) {
+  // Boutons A · B · C sous chaque accord suggéré.
+  function cardPistes(a, li) {
+    var it = A.findAccord(a), row = el("div", { class: "card-pistes", role: "group", "aria-label": t("cardpistes.aria", { n: a.n }) });
+    PISTES.forEach(function (l) {
+      var on = !!(it && it.piste === l), b = el("button", { type: "button", class: "cp", "aria-pressed": String(on), title: t("cardpistes.title", { x: l }), text: l });
+      b.addEventListener("click", function (e) {
+        e.stopPropagation();
+        var p = A.project(), cur = A.findAccord(a);
+        if (cur && cur.piste === l) { cur.piste = ""; A.toast(t("pistebar.off", { x: l })); }
+        else {
+          cur = A.keepAccord(a);
+          p.items.forEach(function (o) { if (o !== cur && o.piste === l) o.piste = ""; });
+          cur.piste = l;
+          var n = pistes(p).length; A.toast(t(n < 3 ? "cardpistes.added" : "pistebar.full", { x: l, p: p.name, n: n }));
+        }
+        A.persist(); A.renderProjects(); refreshCardPistes();
+      });
+      row.appendChild(b);
+    });
+    li.appendChild(row);
+  }
+  function refreshCardPistes() {
+    var list = A.state.list;
+    [].forEach.call(document.querySelectorAll("#cards .card-li"), function (li, i) {
+      var a = list[i]; if (!a) return; var it = A.findAccord(a);
+      [].forEach.call(li.querySelectorAll(".cp"), function (b) { b.setAttribute("aria-pressed", String(!!(it && it.piste === b.textContent))); });
+    });
+  }
+  // Comparateur : les 3 pistes côte à côte avec leurs impacts pour le métier.
+  function renderSlots() {
+    var box = $("pisteSlots"), p = A.project(); box.textContent = "";
+    PISTES.forEach(function (l) {
+      var it = p.items.find(function (o) { return o.piste === l; });
+      if (!it) { box.appendChild(el("div", { class: "slot empty" }, [el("span", { class: "piste-badge", "aria-hidden": "true", text: l }), el("p", { class: "hint", text: t("slot.empty", { x: l }) })])); return; }
+      var info = A.itemInfo(it), f = C.intentFacts(info.colors, info.scene);
+      var open = el("button", { type: "button", class: "mini", text: t("slot.open") }); open.addEventListener("click", function () { A.openHash(it.hash); });
+      var rm = el("button", { type: "button", class: "mini", "aria-label": t("slot.remove", { x: l }), text: "×" }); rm.addEventListener("click", function () { it.piste = ""; A.persist(); A.renderProjects(); refreshCardPistes(); });
+      box.appendChild(el("article", { class: "slot" }, [
+        el("div", { class: "slot-top" }, [el("span", { class: "piste-badge", "aria-hidden": "true", text: l }), el("div", { class: "slot-title" }, [el("b", { text: info.title }), el("small", { text: info.srcName + (info.fid ? " · " + info.fid : "") })]), rm]),
+        el("div", { class: "sw" }, info.colors.map(function (c, j) { return el("i", { style: "background:" + c + ";flex:" + info.parts[j], title: c.toUpperCase() }); })),
+        el("dl", { class: "slot-facts" }, [
+          el("dt", { text: t("cmp.harmony") }), el("dd", { text: t("harm." + f.harmony) }),
+          el("dt", { text: t("cmp.temp") }), el("dd", { text: t("temp." + f.temp) }),
+          el("dt", { text: t("cmp.contrast") }), el("dd", { text: t("cl." + f.contrast) })]),
+        el("p", { class: "label slot-job", text: t("job." + info.scene) + " · " + t("cmp.checks.v", { ok: f.ok, w: f.warn.length }) }),
+        el("ul", { class: "impact compact" }, info.checks.map(function (c) { return el("li", { class: "chk " + c.lv }, [el("span", { class: "ico", "aria-hidden": "true", text: c.lv === "ok" ? "✓" : c.lv === "warn" ? "!" : "i" }), el("span", { text: c.text })]); })),
+        open]));
+    });
+  }
+  // Les pistes suivent le métier choisi : leur lien (sc=) est mis à jour, le dossier montre la bonne mise en situation.
+  function syncPisteScenes() {
+    var p = A.project(), job = A.state.scene, changed = false;
+    p.items.forEach(function (it) {
+      if (!it.piste) return; var k = C.readHash(it.hash); if (!k || k.scene === job) return;
+      k.scene = job; it.hash = C.hashOf(k); changed = true;
+    });
+    if (changed) { A.persist(); A.renderProjects(); }
+  }
+  // Barre « Proposer au client comme A / B / C » sous l'accord affiché.
+  function renderPisteBar() {
+    var it = A.currentItem(), p = A.project(), mine = it ? it.piste : "";
+    [].forEach.call(document.querySelectorAll("#pisteBar .pbtn"), function (b) {
+      var l = b.dataset.piste, other = p.items.find(function (o) { return o.piste === l && o !== it; });
+      b.textContent = t("piste.x", { x: l }); b.setAttribute("aria-pressed", String(mine === l));
+      b.title = other ? t("pistebar.taken", { x: l, n: A.itemLabel(other) }) : "";
+      b.classList.toggle("taken", !!other);
+    });
+    $("pisteBarHint").textContent = mine ? t("pistebar.is", { x: mine, p: p.name }) : t("pistebar.hint", { p: p.name });
+  }
+  function setPiste(l) {
+    var p = A.project(), it = A.currentItem();
+    if (it && it.piste === l) { it.piste = ""; A.persist(); A.renderProjects(); renderPisteBar(); A.toast(t("pistebar.off", { x: l })); return; }
+    it = A.keepCurrent();
+    p.items.forEach(function (o) { if (o !== it && o.piste === l) o.piste = ""; });
+    it.piste = l; A.persist(); A.renderProjects(); renderPisteBar();
     var n = pistes(p).length;
-    $("pitchHint").textContent = n ? t("pitch.ready", { n: n, list: pistes(p).map(function (it) { return it.piste; }).join(", ") }) : t("pitch.none");
-    $("dossierBtn").disabled = !n; $("clientLinkBtn").disabled = !n;
+    A.toast(t(n < 3 ? "pistebar.added" : "pistebar.full", { x: l, p: p.name, n: n }));
+  }
+  function goPick() {
+    A.toast(t("pitch.none"));
+    var bar = $("pisteBar"); bar.scrollIntoView({ behavior: "smooth", block: "center" });
+    bar.classList.remove("flash"); void bar.offsetWidth; bar.classList.add("flash");
+  }
+  function renderPitch(p) {
+    var list = pistes(p), n = list.length;
+    $("pitchHint").textContent = n ? t("pitch.ready", { n: n, list: list.map(function (it) { return it.piste; }).join(", ") }) : t("pitch.none");
+    var steps = $("pitchSteps"); steps.textContent = "";
+    [[n > 0, t("pitch.s1")], [!!(studio.name || studio.logo), t("pitch.s2")], [false, t("pitch.s3")]].forEach(function (s) {
+      steps.appendChild(el("li", { class: s[0] ? "done" : "" }, [el("span", { class: "ico", "aria-hidden": "true", text: s[0] ? "✓" : "" }), el("span", { text: s[1] })]));
+    });
+    var box = $("pitchPistes"); box.textContent = "";
+    PISTES.forEach(function (l) {
+      var it = p.items.find(function (o) { return o.piste === l; }), parts = it ? C.PROPS[it.colors.length] : null;
+      box.appendChild(el("div", { class: "pitch-slot" + (it ? "" : " empty") }, [
+        el("span", { class: "piste-badge", "aria-hidden": "true", text: l }),
+        it ? el("span", { class: "sw" }, it.colors.map(function (c, j) { return el("i", { style: "background:" + c + ";flex:" + parts[j] }); })) : el("span", { class: "sw empty-sw" }),
+        el("span", { class: "slot-name", text: it ? A.itemLabel(it) : t("pitch.empty", { x: l }) })]));
+    });
+    renderPisteBar(); renderSlots(); refreshCardPistes();
     var ul = $("responses"); ul.textContent = "";
     (p.responses || []).slice().reverse().forEach(function (r) {
       ul.appendChild(el("li", { class: "response" }, [
@@ -415,16 +510,22 @@
       $("studioContact").addEventListener("change", function (e) { studio.contact = str(e.target.value, 120); saveStudio(); });
       $("logoFile").addEventListener("change", function (e) { readLogo(e.target.files[0]); e.target.value = ""; });
       $("logoRemove").addEventListener("click", function () { studio.logo = ""; saveStudio(); loadLogo(); showStudio(); });
-      $("dossierBtn").addEventListener("click", printDossier);
-      $("clientLinkBtn").addEventListener("click", clientLink);
+      [].forEach.call(document.querySelectorAll("[data-pitch]"), function (b) {
+        b.addEventListener("click", function () {
+          if (!pistes(A.project()).length) { goPick(); return; }
+          if (b.dataset.pitch === "dossier") printDossier(); else clientLink();
+        });
+      });
+      [].forEach.call(document.querySelectorAll("#pisteBar .pbtn"), function (b) { b.addEventListener("click", function () { setPiste(b.dataset.piste); }); });
       window.addEventListener("hashchange", route);
       showStudio();
       setTimeout(route, 0);  // après le premier rendu de app.js
     },
-    detail: function () { showIntent(); },
-    scene: function () { showIntent(); },
+    detail: function () { showIntent(); renderPisteBar(); },
+    scene: function () { showIntent(); syncPisteScenes(); renderSlots(); },
+    card: cardPistes,
     item: itemControls,
     projects: renderPitch,
-    lang: function () { showStudio(); showIntent(); var prop = parseHashPayload("p"); if (prop && (prop = C.cleanProposal(prop))) renderPresent(prop); }
+    lang: function () { showStudio(); showIntent(); renderPisteBar(); var prop = parseHashPayload("p"); if (prop && (prop = C.cleanProposal(prop))) renderPresent(prop); }
   });
 })();

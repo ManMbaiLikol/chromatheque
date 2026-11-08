@@ -266,7 +266,9 @@
         el("span", { class: "card-foot" }, [el("span", { class: "score", text: a.rule ? t("tag.rule") : t("card.gap", { d: (a.d * 100).toFixed(1) }) }), el("span", { class: "arrow", "aria-hidden": "true", text: "→" })])
       ].filter(Boolean));
       b.addEventListener("click", function () { state.sel = i; state.order = null; refreshCards(); renderDetail(); });
-      ul.appendChild(el("li", null, [b]));
+      var li = el("li", { class: "card-li" }, [b]);
+      hook("card", a, li);
+      ul.appendChild(li);
     });
     updateRuleSample();
     renderArt();
@@ -864,7 +866,22 @@
     C: C, t: t, lang: function () { return lang; }, nameOf: nameOf, num: num, el: el, $: $, toast: toast, download: download, doCopy: doCopy,
     svgImage: svgImage, wrapText: wrapText, wrapMax: wrapMax, fitText: fitText, SHEET: SHEET, FONT: FONT, SCENES: SCENES,
     state: state, current: current, shareHash: shareHash, sim: sim, checkText: checkText, itemInfo: itemInfo,
-    project: project, store: function () { return store; }, persist: persist, renderProjects: renderProjects, newId: newId, slug: slug,
+    project: project, itemLabel: itemLabel, store: function () { return store; }, persist: persist, renderProjects: renderProjects, newId: newId, slug: slug,
+    // Garder un accord des suggestions (sans l'ouvrir) : même lien que s'il était affiché, ordre par défaut.
+    keepAccord: function (a) {
+      var p = project(), h = readHash(shareHash()); h.n = a.n; h.order = null; h.lang = null;
+      var hash = hashOf(h), key = keyOf(hash), it = p.items.find(function (o) { return keyOf(o.hash) === key; });
+      if (!it) { var ST = window.ChromaStudio; it = { hash: hash, n: a.n, colors: a.colors.slice(), note: "", added: new Date().toISOString(), intent: ST ? ST.edited(hash) : "" }; p.items.unshift(it); persist(); updateFav(); }
+      return it;
+    },
+    findAccord: function (a) { var h = readHash(shareHash()); h.n = a.n; h.order = null; var key = keyOf(hashOf(h)); return project().items.find(function (o) { return keyOf(o.hash) === key; }) || null; },
+    openHash: openHash,
+    keepCurrent: function () {
+      var p = project(), i = inProject();
+      if (i < 0) { var s = snapshot(), ST = window.ChromaStudio; s.note = ""; s.added = new Date().toISOString(); s.intent = ST ? ST.edited(s.hash) : ""; p.items.unshift(s); i = 0; persist(); updateFav(); }
+      return p.items[i];
+    },
+    currentItem: function () { var i = inProject(); return i < 0 ? null : project().items[i]; },
     currentInfo: function () { var cur = current(); if (!cur) return null; var h = shareHash(), i = itemInfo({ hash: h, n: cur.a.n, colors: cur.colors }); i.fid = cur.a.rule ? t("tag.rule") : t("fid." + cur.a.fid); return i; }
   };
   EXT.forEach(function (x) { if (x.init) x.init(window.ChromaApp); });

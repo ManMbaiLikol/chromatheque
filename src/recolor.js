@@ -99,6 +99,7 @@
     if (!ph) return;
     cancelAnimationFrame(raf);
     raf = requestAnimationFrame(function () {
+      if (!ph) return;  // photo retirée entre-temps
       var cv = $("photoCanvas"), ctx = cv.getContext("2d"), cur = A.current(); if (!cur) return;
       if (before) { ctx.putImageData(ph.src, 0, 0); renderZones(); return; }
       var cs = cur.colors, T = cs.map(function (c) { return C.lab(A.sim(c)); }), out = ctx.createImageData(ph.w, ph.h), L = ph.L, d = out.data, sd = ph.src.data;

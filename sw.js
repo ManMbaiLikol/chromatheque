@@ -1,7 +1,7 @@
 /* La Chromathèque de Man Mbaï Likol — service worker : l'app marche hors ligne (showroom, chantier).
    Réseau d'abord pour nos fichiers (on voit toujours la dernière version en ligne), cache en secours.
    Polices Google : cache d'abord. Changer VERSION à chaque mise en ligne qui modifie la liste SHELL. */
-var VERSION = "accords-wada-v3";
+var VERSION = "accords-wada-v4";
 var SHELL = [
   "./", "index.html", "manifest.webmanifest",
   "src/styles.css", "src/core.js", "src/i18n.js", "src/wada-data.js", "src/sources-data.js", "src/scenes.js", "src/proposal.js", "src/recolor.js", "src/app.js",
@@ -33,7 +33,9 @@ self.addEventListener("fetch", function (e) {
   }
   if (url.origin !== self.location.origin) return;
 
-  e.respondWith(fetch(req).then(function (res) {
+  // Toujours revalider auprès du serveur : une page neuve ne doit jamais tourner avec d'anciens scripts.
+  var net = req.mode === "navigate" ? fetch(req) : fetch(req, { cache: "no-cache" });
+  e.respondWith(net.then(function (res) {
     if (res.ok) { var copy = res.clone(); caches.open(VERSION).then(function (c) { c.put(req, copy); }); }
     return res;
   }).catch(function () {

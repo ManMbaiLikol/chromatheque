@@ -13,7 +13,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,400..800&amp;family=Fraunces:ital,opsz,wght@0,9..144,400..700;1,9..144,400..600&amp;family=Plus+Jakarta+Sans:wght@400;500;600;700&amp;family=IBM+Plex+Mono:wght@400;500&amp;family=Shippori+Mincho:wght@600&amp;display=swap">
-<link rel="stylesheet" href="src/styles.css">
+<link rel="stylesheet" href="src/styles.css?v=20261108c">
 </head>
 <body>
 <a class="skip" href="#couleur" data-i18n="h.skip">Aller à l'outil</a>
@@ -140,6 +140,18 @@
     </div>
   </section>
 
+    <section class="pistes-strip reveal" id="pistesStrip" aria-labelledby="pistesTitle">
+      <div class="dcard-head">
+        <div><p class="label" data-i18n="h.pistes.k">Pour ton client</p><h3 id="pistesTitle" data-i18n="h.pistes">Tes pistes, côte à côte</h3></div>
+        <div class="actions">
+          <button class="btn small" type="button" data-pitch="dossier" data-i18n="h.dossier">Dossier de proposition (PDF)</button>
+          <button class="btn ghost small" type="button" data-pitch="link" data-i18n="h.clientlink">Lien pour le client</button>
+        </div>
+      </div>
+      <p class="hint" id="pistesHint" data-i18n="h.pistes.hint">Clique A, B ou C sous un accord suggéré pour en faire une piste. Ses impacts pour ton métier s'affichent ici, à comparer avant de présenter.</p>
+      <div class="slots" id="pisteSlots"></div>
+    </section>
+
   <section class="detail reveal" id="accord" aria-live="polite">
     <div class="detail-info">
       <div class="step-head">
@@ -152,6 +164,15 @@
       <div class="actions">
         <button class="btn" type="button" id="rotate" data-i18n="h.rotate">Changer la couleur dominante</button>
         <button class="btn ghost fav" type="button" id="fav" aria-pressed="false" data-i18n="h.fav">Garder dans le projet</button>
+      </div>
+      <div class="piste-bar" id="pisteBar" role="group" aria-labelledby="pisteBarLabel">
+        <p class="label" id="pisteBarLabel" data-i18n="h.pistebar">Proposer au client comme</p>
+        <div class="piste-btns">
+          <button class="pbtn" type="button" data-piste="A" aria-pressed="false">A</button>
+          <button class="pbtn" type="button" data-piste="B" aria-pressed="false">B</button>
+          <button class="pbtn" type="button" data-piste="C" aria-pressed="false">C</button>
+        </div>
+        <p class="hint" id="pisteBarHint"></p>
       </div>
     </div>
 
@@ -259,6 +280,8 @@
           <button class="btn" type="button" id="sheetPng" data-i18n="h.sheet.png">Planche PNG</button>
           <button class="btn ghost" type="button" id="sheetPrint" data-i18n="h.sheet.print">Imprimer ou PDF</button>
           <button class="btn ghost" type="button" data-copy="link" data-i18n="h.copy.link">Copier le lien</button>
+          <button class="btn ghost" type="button" data-pitch="dossier" data-i18n="h.dossier">Dossier de proposition (PDF)</button>
+          <button class="btn ghost" type="button" data-pitch="link" data-i18n="h.clientlink">Lien pour le client</button>
         </div>
       </div>
       <div class="dcard">
@@ -313,10 +336,12 @@
     <p class="hint" id="savedHint"></p>
     <div class="dcard pitch">
       <p class="label" data-i18n="h.pitch">Proposition client</p>
-      <p class="hint" id="pitchHint" data-i18n="h.pitch.hint">Marque 1 à 3 accords comme Piste A, B ou C : ils forment le dossier et la vue client.</p>
+      <ol class="pitch-steps" id="pitchSteps"></ol>
+      <div class="pitch-pistes" id="pitchPistes"></div>
+      <p class="hint" id="pitchHint"></p>
       <div class="actions">
-        <button class="btn" type="button" id="dossierBtn" data-i18n="h.dossier">Dossier de proposition (PDF)</button>
-        <button class="btn ghost" type="button" id="clientLinkBtn" data-i18n="h.clientlink">Lien pour le client</button>
+        <button class="btn" type="button" data-pitch="dossier" data-i18n="h.dossier">Dossier de proposition (PDF)</button>
+        <button class="btn ghost" type="button" data-pitch="link" data-i18n="h.clientlink">Lien pour le client</button>
       </div>
       <ul class="responses" id="responses"></ul>
     </div>
@@ -365,13 +390,13 @@
 <p class="toast" id="toast" role="status"></p>
 <img class="print-sheet" id="printSheet" alt="Planche de l'accord" data-i18n-attr="alt=h.sheet.alt">
 <div class="print-pages" id="printPages"></div>
-<script src="src/core.js"></script>
-<script src="src/i18n.js"></script>
-<script src="src/wada-data.js"></script>
-<script src="src/sources-data.js"></script>
-<script src="src/scenes.js"></script>
-<script src="src/proposal.js"></script>
-<script src="src/recolor.js"></script>
-<script src="src/app.js"></script>
+<script src="src/core.js?v=20261108c"></script>
+<script src="src/i18n.js?v=20261108c"></script>
+<script src="src/wada-data.js?v=20261108c"></script>
+<script src="src/sources-data.js?v=20261108c"></script>
+<script src="src/scenes.js?v=20261108c"></script>
+<script src="src/proposal.js?v=20261108c"></script>
+<script src="src/recolor.js?v=20261108c"></script>
+<script src="src/app.js?v=20261108c"></script>
 </body>
 </html>
