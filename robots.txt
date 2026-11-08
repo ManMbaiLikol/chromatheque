@@ -1,0 +1,3 @@
+User-agent: *
+Allow: /
+Sitemap: https://manmbailikol.github.io/chromatheque/sitemap.xml
