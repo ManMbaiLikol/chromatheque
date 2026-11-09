@@ -457,7 +457,7 @@
     var c = q.c ? parseHex(q.c) : null; if (!c) return null;
     return { seed: c, seed2: q.c2 ? parseHex(q.c2) : null, n: Math.max(0, Math.min(999, parseInt(q.n, 10) || 0)),
       order: q.o ? q.o.split(".").map(Number) : null, parts: q.p ? cleanParts(q.p.split(".").map(Number)) : null, size: [2, 3, 4].indexOf(+q.t) >= 0 ? +q.t : 0,
-      substitute: q.ex !== "0", transpose: q.tr === "1", scene: SCENES.indexOf(q.sc) >= 0 ? q.sc : "interieur",
+      substitute: q.ex !== "0", transpose: q.tr === "1", scene: SCENES.indexOf(q.sc) >= 0 ? q.sc : "interieur", model: /^[0-4]$/.test(q.m || "") ? +q.m : 1,
       source: SOURCES.indexOf(q.s) > 0 ? q.s : "wada",
       locked: q.c2 && parseHex(q.c2) ? 2 : q.k === "1" ? 1 : 0,
       lang: q.lg === "en" || q.lg === "fr" ? q.lg : null };
@@ -472,6 +472,7 @@
     if (k.size) p.push("t=" + k.size);
     if (!k.substitute) p.push("ex=0");
     if (k.transpose) p.push("tr=1");
+    if (k.model != null && k.model !== 1 && /^[0-4]$/.test(String(k.model))) p.push("m=" + k.model);
     if (k.scene && k.scene !== "interieur") p.push("sc=" + k.scene);
     if (k.source && k.source !== "wada") p.push("s=" + k.source);
     if (k.lang === "en") p.push("lg=en");

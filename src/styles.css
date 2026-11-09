@@ -531,7 +531,7 @@ a.dock-btn { display: inline-flex; align-items: center; gap: 6px; text-decoratio
 .dock-btn b { font: 500 12px var(--mono); opacity: .8 }
 .pitch-steps .step-go { margin-left: 6px; font-weight: 600; white-space: nowrap }
 @media (max-width: 460px) { .dock-mark { display: none } .dock { gap: 3px } .dock-btn { padding: 0 9px; font-size: 12.5px } }
-.slot-scene { display: block; width: 100%; height: auto; aspect-ratio: 480 / 340; border-radius: 10px; background: var(--sunk) }
+.slot-scene { display: block; width: 100%; height: auto; border-radius: 10px; background: var(--sunk) }
 /* Proportions réglables */
 .parts-box { display: grid; gap: 8px; margin: 12px 0 }
 .parts-head { display: flex; align-items: center; justify-content: space-between; gap: 10px }
@@ -551,3 +551,7 @@ html.simple [data-expert], html.simple .fid-method, html.simple .fid-line small 
 .src-pick { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; margin: 4px 0 10px }
 .src-pick .seg button { padding: 6px 12px }
 .src-more { font-size: 13px; font-weight: 600 }
+/* Support de la mise en situation : 4 modèles par métier + esquisse */
+.support { display: grid; gap: 6px; margin: 10px 0 }
+.wrap-seg { display: flex; flex-wrap: wrap; height: auto; border-radius: 14px }
+.wrap-seg button { white-space: normal; text-align: left; line-height: 1.25; padding: 7px 12px }

@@ -2,9 +2,10 @@
    Dessins originaux MML (aucun modèle tiers). Chaque scène : SVG 480 × 340, couleurs de l'accord dans l'ordre
    des proportions (A dominante, B secondaire, Cc accent, D complément). Fonctions pures : dans Node, require. */
 (function (root, factory) {
-  var api = factory(root.WadaCore || (typeof require === "function" ? require("./core.js") : null));
-  if (typeof module === "object" && module.exports) module.exports = api; else root.WadaScenes = api;
-})(typeof self !== "undefined" ? self : this, function (C) {
+  var node = typeof module === "object" && module.exports;
+  var api = factory(root.WadaCore || (node ? require("./core.js") : null), root.WADA_MODELS || (node ? require("./models-data.js") : null));
+  if (node) module.exports = api; else root.WadaScenes = api;
+})(typeof self !== "undefined" ? self : this, function (C, MODELS) {
   "use strict";
   var N = { bg: "#e7e6e2", floor: "#d6d5d0", line: "#c4c3bd", dark: "#1d1d1b", glass: "#dfe3e4", grey: "#9a9993", paper: "#fbfbf9" };
   function esc(s) { return String(s).replace(/[&<>"]/g, function (c) { return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]; }); }
@@ -178,11 +179,32 @@
     }
   };
 
-  // cs : couleurs de l'accord (2 à 4), opts : { aria, label, webTitle }
+  /* Supports (catalogue MML de 60 modèles, src/models-data.js) : 4 par métier, n° 1 à 4 ; n° 0 = esquisse d'origine.
+     Rôles : primary = dominante, secondary, accent (3e couleur, sinon la 2e), accent-2 (4e, sinon 3e, sinon dominante) ;
+     les textes posés sur un rôle prennent blanc ou noir, le plus lisible (readableOn). */
+  var DEFAULT = MODELS ? 1 : 0, uid = 0;
+  function list(job) { return MODELS && MODELS.jobs[job] ? MODELS.jobs[job] : []; }
+  function modelOf(m) { m = +m; return m >= 0 && m <= 4 && m === Math.round(m) ? m : DEFAULT; }
+  function size(job, m) { m = modelOf(m); return m && list(job)[m - 1] ? { w: MODELS.w, h: MODELS.h } : { w: 480, h: 340 }; }
+  function roleVars(cs) {
+    var c = [cs[0], cs[1], cs[2] || cs[1], cs[3] || cs[2] || cs[0]], o = {};
+    ["primary", "secondary", "accent", "accent-2"].forEach(function (r, i) { o["--chroma-" + r] = c[i]; o["--chroma-" + r + "-text"] = ink(c[i]); });
+    return o;
+  }
+  function renderModel(mod, cs, o) {
+    var v = roleVars(cs), pre = "c" + (++uid) + "-", s = mod.svg.replace(/var\((--chroma-[a-z0-9-]+)\)/g, function (all, k) { return v[k] || all; });
+    s = s.replace(/(\s)id="([^"]+)"/g, function (_, sp, id) { return sp + 'id="' + pre + id + '"'; }).replace(/url\(#([^)]+)\)/g, function (_, id) { return "url(#" + pre + id + ")"; });
+    if (o.aria != null) s = s.replace(/aria-label="[^"]*"/, 'aria-label="' + esc(o.aria) + '"');
+    return s;
+  }
+  // cs : couleurs de l'accord (2 à 4), opts : { aria, label, webTitle, model }
   function render(job, cs, opts) {
-    var A = cs[0], B = cs[1], Cc = cs[2] || cs[1], D = cs[3] || cs[2] || cs[0], o = opts || {};
+    var o0 = opts || {}, m = modelOf(o0.model), mod = m ? list(job)[m - 1] : null;
+    if (mod) return renderModel(mod, cs, o0);
+    var A = cs[0], B = cs[1], Cc = cs[2] || cs[1], D = cs[3] || cs[2] || cs[0], o = o0;
     o.label = o.label || ""; o.webTitle = o.webTitle || "Wada";
     return '<svg viewBox="0 0 480 340" role="img" aria-label="' + esc(o.aria || job) + '">' + (DRAW[job] || DRAW.interieur)(A, B, Cc, D, cs, o) + "</svg>";
   }
-  return { render: render, JOBS: Object.keys(DRAW) };
+  function models(job) { return list(job).map(function (x, i) { return { n: i + 1, id: x.id, fr: x.fr, en: x.en }; }); }
+  return { render: render, JOBS: Object.keys(DRAW), models: models, size: size, modelOf: modelOf, roleVars: roleVars, DEFAULT: DEFAULT };
 });

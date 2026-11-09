@@ -172,7 +172,7 @@ test("scènes : un SVG par métier, avec les couleurs de l'accord", () => {
   assert.deepEqual(Scenes.JOBS.slice().sort(), C.JOB_IDS.slice().sort());
   const cs = ["#6c2b11", "#f2ad78", "#0057ba", "#e8dcc0"];
   for (const j of C.JOB_IDS) {
-    const svg = Scenes.render(j, cs, { aria: "a<b", label: "n° 1" });
+    const svg = Scenes.render(j, cs, { aria: "a<b", label: "n° 1", model: 0 });
     assert.match(svg, /^<svg viewBox="0 0 480 340"/, j);
     assert.ok(svg.includes(cs[0]), j + " : dominante présente");
     assert.ok(!svg.includes("a<b"), j + " : texte échappé");
@@ -332,4 +332,30 @@ test("justification des accords : mesures seulement", () => {
   assert.equal(w.use, "large"); assert.equal(w.r, "3.8"); assert.equal(w.close, null); assert.equal(w.kept, 1);
   const c = C.whyOf(["#c0c0c0", "#c4c4c4", "#000000"], ["#ff0000"]);
   assert.deepEqual(c.close, ["#c0c0c0", "#c4c4c4"]); assert.equal(c.kept, 0); assert.equal(c.locked, 1);
+});
+
+test("supports : 4 modèles MML par métier, recolorés avec l'accord", () => {
+  const cs = ["#6c2b11", "#f2ad78", "#0057ba"];
+  for (const j of C.JOB_IDS) {
+    assert.equal(Scenes.models(j).length, 4, j);
+    for (let m = 1; m <= 4; m++) {
+      const svg = Scenes.render(j, cs, { aria: "a<b", model: m });
+      assert.match(svg, /viewBox="0 0 800 540"/, j + m);
+      assert.ok(!/var\(--chroma/.test(svg), j + m + " : toutes les variables remplacées");
+      assert.ok(svg.includes(cs[0]), j + m + " : dominante présente");
+      assert.ok(!svg.includes("a<b") && !/<script|\son[a-z]+=/i.test(svg), j + m + " : texte échappé, rien d'actif");
+      const ids = (svg.match(/\sid="([^"]+)"/g) || []).map((x) => x.trim().slice(4, -1));
+      for (const u of svg.match(/url\(#([^)]+)\)/g) || []) assert.ok(ids.includes(u.slice(5, -1)), j + m + " : référence " + u);
+    }
+  }
+  // Rôles : 2 couleurs → accents repris de la palette ; textes blanc ou noir lisibles.
+  const v = Scenes.roleVars(["#244b40", "#f1e5cd"]);
+  assert.equal(v["--chroma-accent"], "#f1e5cd"); assert.equal(v["--chroma-accent-2"], "#244b40");
+  assert.ok(C.contrast(v["--chroma-primary-text"], "#244b40") >= 4.5);
+  assert.deepEqual(Scenes.size("mode", 0), { w: 480, h: 340 }); assert.deepEqual(Scenes.size("mode", 2), { w: 800, h: 540 });
+  // Lien : m= gardé (1 par défaut, absent), ignoré par keyOf.
+  assert.equal(C.readHash("#c=c4663f&n=243").model, 1);
+  const h = C.hashOf(Object.assign(C.readHash("#c=c4663f&n=243"), { model: 3 }));
+  assert.ok(h.includes("m=3")); assert.equal(C.readHash(h).model, 3); assert.equal(C.keyOf(h), C.keyOf("#c=c4663f&n=243"));
+  assert.equal(C.readHash("#c=c4663f&n=243&m=9").model, 1);
 });

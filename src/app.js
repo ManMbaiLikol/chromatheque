@@ -53,7 +53,7 @@
   function rolesFor(src, k) { return src === "kasane" && k === 2 ? [t("role.kasane.0"), t("role.kasane.1")] : C.rolesOf(k, lang); }
 
   /* ---------- état ---------- */
-  var state = { source: "wada", seed: "#1448c8", seed2: null, multi: false, draft: "#1448c8", locked: [], size: 0, substitute: true, transpose: false, sel: 0, order: null, scene: "interieur", dictSize: 0, list: [], wantN: 0, wantOrder: null, light: 6500, vision: "normale" };
+  var state = { source: "wada", seed: "#1448c8", seed2: null, multi: false, draft: "#1448c8", locked: [], size: 0, substitute: true, transpose: false, sel: 0, order: null, scene: "interieur", model: 1, dictSize: 0, list: [], wantN: 0, wantOrder: null, light: 6500, vision: "normale" };
   try {
     var saved = JSON.parse(localStorage.getItem("accords-wada") || "null");
     var hexOk = function (h) { return typeof h === "string" && /^#[0-9a-f]{6}$/i.test(h); };
@@ -61,15 +61,16 @@
     if (saved && Array.isArray(saved.locked)) state.locked = saved.locked.filter(hexOk).map(function (h) { return h.toLowerCase(); }).slice(0, 2);
     else if (saved && saved.multi && hexOk(saved.seed) && hexOk(saved.seed2)) state.locked = [saved.seed.toLowerCase(), saved.seed2.toLowerCase()];  // ancienne « 2e couleur »
     if (saved && SRC[saved.source]) state.source = saved.source;
+    if (saved && /^[0-4]$/.test(String(saved.model))) state.model = saved.model;
   } catch (e) {}
   // seed / seed2 / multi sont dérivés : couleurs imposées d'abord, sinon la couleur à essayer.
   function sync() { state.seed = state.locked[0] || state.draft; state.seed2 = state.locked[1] || null; state.multi = state.locked.length === 2; }
   sync();
-  function save() { try { localStorage.setItem("accords-wada", JSON.stringify({ seed: state.seed, draft: state.draft, locked: state.locked, size: state.size, scene: state.scene, source: state.source })); } catch (e) {} }
+  function save() { try { localStorage.setItem("accords-wada", JSON.stringify({ seed: state.seed, draft: state.draft, locked: state.locked, size: state.size, scene: state.scene, source: state.source, model: state.model })); } catch (e) {} }
   // Un lien partagé passe avant la mémoire du navigateur.
   function takeLink(k) {
     state.draft = k.seed; state.locked = k.locked === 2 ? [k.seed, k.seed2] : k.locked === 1 ? [k.seed] : []; sync();
-    state.size = k.size; state.substitute = k.substitute; state.transpose = k.transpose; state.scene = k.scene; state.source = k.source || "wada";
+    state.size = k.size; state.substitute = k.substitute; state.transpose = k.transpose; state.scene = k.scene; state.model = k.model == null ? 1 : k.model; state.source = k.source || "wada";
     state.wantN = k.n; state.wantOrder = k.order; state.wantParts = k.parts;
     if (k.lang) lang = k.lang;
   }
@@ -78,7 +79,7 @@
   if (link) takeLink(link);
   function shareHash() {
     var cur = current();
-    return hashOf({ seed: state.seed, seed2: state.multi ? state.seed2 : null, locked: state.locked.length, n: cur ? cur.a.n : 0, order: state.order, parts: state.parts, size: state.size, substitute: state.substitute, transpose: state.transpose, scene: state.scene, source: state.source, lang: lang });
+    return hashOf({ seed: state.seed, seed2: state.multi ? state.seed2 : null, locked: state.locked.length, n: cur ? cur.a.n : 0, order: state.order, parts: state.parts, size: state.size, substitute: state.substitute, transpose: state.transpose, scene: state.scene, model: state.model, source: state.source, lang: lang });
   }
   function shareUrl() { return location.href.split("#")[0] + shareHash(); }
   // Sections : la destination (go=) est séparée des réglages ; un lien « #metier » garde la palette mémorisée.
@@ -476,13 +477,32 @@
   }
   function jobLines(cs) { return C.jobChecks(state.scene, cs).map(function (c) { return { lv: c.lv, text: checkText(c) }; }); }
   function sceneSvg(cs, n) {
-    return SCENES.render(state.scene, cs, { aria: t("scene.aria", { j: t("job." + state.scene) }), label: shortLabel(state.source, n), webTitle: t("scene.web.title") });
+    return SCENES.render(state.scene, cs, { aria: t("scene.aria", { j: t("job." + state.scene) }), label: shortLabel(state.source, n), webTitle: t("scene.web.title"), model: state.model });
+  }
+  // Supports du métier : 4 modèles MML (n° 1 à 4) et l'esquisse d'origine (n° 0). Gardé dans le lien (m=).
+  // Légende de la mise en situation : le support choisi et la règle des rôles, ou la description de l'esquisse.
+  function sceneNote() {
+    var m = SCENES.models(state.scene)[state.model - 1];
+    return m ? t("support.note", { s: m[lang] || m.fr }) : t("scene." + state.scene);
+  }
+  function renderSupports() {
+    var box = $("supportSeg"), sig = state.scene + "|" + lang;
+    if (box.dataset.sig !== sig) {
+      box.dataset.sig = sig; box.textContent = "";
+      SCENES.models(state.scene).map(function (m) { return [m.n, m[lang] || m.fr]; }).concat([[0, t("support.sketch")]]).forEach(function (o) {
+        var b = el("button", { type: "button", "data-v": String(o[0]), text: o[1] });
+        b.addEventListener("click", function () { state.model = o[0]; save(); renderScene(); });
+        box.appendChild(b);
+      });
+    }
+    setPressed("supportSeg", state.model);
   }
   function renderScene() {
     var cur = current(); if (!cur) return;
     $("jobDesc").textContent = t("job." + state.scene + ".d");
+    renderSupports();
     $("scene").innerHTML = sceneSvg(cur.colors.map(sim), cur.a.n);
-    $("sceneHint").textContent = t("scene." + state.scene);
+    $("sceneHint").textContent = sceneNote();
     updateToolbar();
     var ul = $("impact"); ul.textContent = "";
     jobLines(cur.colors).forEach(function (l) { ul.appendChild(el("li", { class: "chk " + l.lv }, [el("span", { class: "ico", "aria-hidden": "true", text: l.lv === "ok" ? "✓" : l.lv === "warn" ? "!" : "i" }), el("span", { text: l.text })])); });
@@ -531,11 +551,18 @@
   var SHEET = { w: 1754, h: 1240, scale: 2, m: 72, bg: "#f4f4f2", ink: "#1b1b19", muted: "#5d5d58", line: "#d9d9d5" };
   var FONT = { display: '"Bricolage Grotesque", "Shippori Mincho", "Segoe UI", sans-serif', body: '"Plus Jakarta Sans", "Segoe UI", sans-serif', mono: '"IBM Plex Mono", Consolas, monospace' };
   // Mise en situation en <img> (data URL) : aucune insertion de HTML, même avec des couleurs venues d'un projet.
-  function svgSrc(svg) { return "data:image/svg+xml;charset=utf-8," + encodeURIComponent(svg.replace("<svg ", '<svg xmlns="http://www.w3.org/2000/svg" ')); }
+  // SVG autonome pour une image : espace de noms (une seule fois) et taille tirée du viewBox (images et canvas).
+  function withNs(svg) {
+    var head = /^<svg[^>]*>/.exec(svg)[0], vb = /viewBox="0 0 (\d+) (\d+)"/.exec(head), add = "";
+    if (!/\sxmlns=/.test(head)) add += ' xmlns="http://www.w3.org/2000/svg"';
+    if (vb && !/\swidth=/.test(head)) add += ' width="' + vb[1] + '" height="' + vb[2] + '"';
+    return add ? svg.replace("<svg", "<svg" + add) : svg;
+  }
+  function svgSrc(svg) { return "data:image/svg+xml;charset=utf-8," + encodeURIComponent(withNs(svg)); }
   function svgImage(svg) {
     return new Promise(function (ok, ko) {
       var img = new Image(); img.onload = function () { ok(img); }; img.onerror = ko;
-      img.src = "data:image/svg+xml;charset=utf-8," + encodeURIComponent(svg.replace("<svg ", '<svg xmlns="http://www.w3.org/2000/svg" '));
+      img.src = "data:image/svg+xml;charset=utf-8," + encodeURIComponent(withNs(svg));
     });
   }
   function wrapText(ctx, text, x, y, maxW, lh) {
@@ -606,13 +633,13 @@
       });
 
       // Mise en situation et analyse pour le métier choisi
-      var sh = RW * 340 / 480;
+      var sz = SCENES.size(state.scene, state.model), sh = RW * sz.h / sz.w;
       if (img) x.drawImage(img, RX, top, RW, sh);
       x.strokeStyle = S.line; x.strokeRect(RX + 0.5, top + 0.5, RW - 1, sh - 1);
       x.fillStyle = S.ink; x.font = "700 15px " + FONT.body;
       var hy = wrapText(x, t("sheet.job", { j: t("job." + state.scene) }), RX, top + sh + 16, RW, 22);
       x.fillStyle = S.muted; x.font = "400 14px " + FONT.body;
-      hy = wrapText(x, t("scene." + state.scene), RX, hy + 2, RW, 20);
+      hy = wrapText(x, sceneNote(), RX, hy + 2, RW, 20);
       var rd = readableOn(cs[0]);
       hy = wrapText(x, t("sheet.legible", { c: t(rd.c === "#ffffff" ? "white" : "black"), r: C.ratioText(rd.r), t: useShort(rd.r) }), RX, hy + 6, RW, 20);
       jobLines(cs).forEach(function (l) { if (hy < S.h - M - 110) hy = wrapText(x, (l.lv === "ok" ? "✓ " : l.lv === "warn" ? "! " : "· ") + l.text, RX, hy + 6, RW, 20); });
@@ -957,7 +984,7 @@
     else { var r = k.seed ? SRC[src].search(k.seed, 0, k.seed2 || null).find(function (x) { return x.n === it.n; }) : null; if (r) fid = t("fid." + C.fid(r.d)); }
     var e = entryOf(src, it.n);
     return { hash: it.hash, n: it.n, src: src, two: two, colors: cs, scene: scene, seed: k.seed, srcName: srcName(src), fid: fid,
-      title: src === "wada" ? "Sanzo Wada " + num(it.n) : longLabel(src, it.n, two), group: e ? e.g[lang] : "", roles: rolesFor(src, cs.length), parts: C.partsOf(cs.length, k.parts),
+      model: k.model == null ? 1 : k.model, title: src === "wada" ? "Sanzo Wada " + num(it.n) : longLabel(src, it.n, two), group: e ? e.g[lang] : "", roles: rolesFor(src, cs.length), parts: C.partsOf(cs.length, k.parts),
       checks: C.jobChecks(scene, cs).map(function (c) { return { lv: c.lv, text: checkText(c) }; }), piste: it.piste || "", intent: it.intent || "" };
   }
   window.ChromaApp = {

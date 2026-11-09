@@ -162,7 +162,7 @@
         el("div", { class: "slot-top" }, [el("span", { class: "piste-badge", "aria-hidden": "true", text: l }), el("div", { class: "slot-title" }, [el("b", { text: info.title }), el("small", { text: info.srcName + (info.fid ? " · " + info.fid : "") })]), rm]),
         el("div", { class: "sw" }, info.colors.map(function (c, j) { return el("i", { style: "background:" + c + ";flex:" + info.parts[j], title: c.toUpperCase() }); })),
         // Même métier, même dessin, même cadrage pour les trois pistes : seules les couleurs changent.
-        el("img", { class: "slot-scene", alt: t("slot.scene", { x: l, j: t("job." + info.scene) }), src: A.svgSrc(A.SCENES.render(info.scene, info.colors, { aria: "", label: info.title, webTitle: t("scene.web.title") })) }),
+        el("img", { class: "slot-scene", style: (function () { var z = A.SCENES.size(info.scene, info.model); return "aspect-ratio:" + z.w + "/" + z.h; })(), alt: t("slot.scene", { x: l, j: t("job." + info.scene) }), src: A.svgSrc(A.SCENES.render(info.scene, info.colors, { aria: "", label: info.title, webTitle: t("scene.web.title"), model: info.model })) }),
         el("dl", { class: "slot-facts" }, [
           el("dt", { text: t("cmp.harmony") }), el("dd", { text: t("harm." + f.harmony) }),
           el("dt", { text: t("cmp.temp") }), el("dd", { text: t("temp." + f.temp) }),
@@ -179,8 +179,8 @@
   function syncPisteScenes() {
     var p = A.project(), job = A.state.scene, changed = false;
     p.items.forEach(function (it) {
-      if (!it.piste) return; var k = C.readHash(it.hash); if (!k || k.scene === job) return;
-      k.scene = job; it.hash = C.hashOf(k); changed = true;
+      if (!it.piste) return; var k = C.readHash(it.hash); if (!k || (k.scene === job && k.model === A.state.model)) return;
+      k.scene = job; k.model = A.state.model; it.hash = C.hashOf(k); changed = true;
     });
     if (changed) { A.persist(); A.renderProjects(); }
   }
@@ -308,7 +308,7 @@
       x.font = "400 14px " + F.mono; x.fillStyle = S.ink;
       [v.hex, "CMJN ≈ " + v.cmjn, "LRV ≈ " + v.lrv].forEach(function (s2, j) { x.fillText(A.fitText(x, s2, mw), cx, yy + 104 + j * 22); });
     });
-    var sh = RW * 340 / 480;
+    var sz = A.SCENES.size(info.scene, info.model), sh = RW * sz.h / sz.w;
     if (img) x.drawImage(img, RX, 190, RW, sh);
     x.strokeStyle = S.line; x.strokeRect(RX + 0.5, 190.5, RW - 1, sh - 1);
     x.fillStyle = S.ink; x.font = "700 15px " + F.body;
@@ -326,7 +326,7 @@
       letter(x, info.piste, X, Y, 22);
       x.fillStyle = S.ink; x.font = "700 20px " + F.display; x.fillText(A.fitText(x, info.title, W - 60), X + 58, Y + 8);
       band(x, info.colors, info.parts, X, Y + 64, W, 110, false);
-      var sh = Math.round(W * 340 / 480), img = scenes && scenes[i];
+      var sz = A.SCENES.size(info.scene, info.model), sh = Math.round(W * sz.h / sz.w), img = scenes && scenes[i];
       if (img) x.drawImage(img, X, Y + 194, W, sh); else { x.fillStyle = S.line; x.fillRect(X, Y + 194, W, sh); }
       var rows = [[t("cmp.source"), info.srcName + (info.fid ? " · " + info.fid : "")], [t("cmp.harmony"), t("harm." + f.harmony)], [t("cmp.temp"), t("temp." + f.temp)],
         [t("cmp.contrast"), t("cl." + f.contrast)], [t("cmp.checks"), t("cmp.checks.v", { ok: f.ok, w: f.warn.length })]];
@@ -388,7 +388,7 @@
     var wanted = ["800 40px " + A.FONT.display, "400 16px " + A.FONT.body, "700 16px " + A.FONT.body, "italic 400 16px " + A.FONT.body, "400 14px " + A.FONT.mono];
     var fonts = document.fonts ? Promise.all(wanted.map(function (f) { return document.fonts.load(f).catch(function () {}); })) : Promise.resolve();
     var imgs = infos.map(function (info) {
-      return A.svgImage(A.SCENES.render(info.scene, info.colors, { aria: "", label: info.title, webTitle: t("scene.web.title") })).catch(function () { return null; });
+      return A.svgImage(A.SCENES.render(info.scene, info.colors, { aria: "", label: info.title, webTitle: t("scene.web.title"), model: info.model })).catch(function () { return null; });
     });
     return Promise.all([fonts].concat(imgs)).then(function (res) {
       var pages = [coverPage(S, p, infos)].concat(infos.map(function (info, i) { return pistePage(S, p, info, res[i + 1]); }));
@@ -450,7 +450,7 @@
     var grid = el("div", { class: "present-grid" }), choice = { p: "" };
     prop.i.forEach(function (it, i) {
       var info = A.itemInfo({ hash: it.h, n: (C.readHash(it.h) || {}).n, colors: it.c }), l = it.p || PISTES[i];
-      var sceneBox = el("div", { class: "scene" }); sceneBox.innerHTML = A.SCENES.render(info.scene, it.c, { aria: t("scene.aria", { j: t("job." + info.scene) }), label: info.title, webTitle: t("scene.web.title") });
+      var sceneBox = el("div", { class: "scene" }); sceneBox.innerHTML = A.SCENES.render(info.scene, it.c, { aria: t("scene.aria", { j: t("job." + info.scene) }), label: info.title, webTitle: t("scene.web.title"), model: info.model });
       var radio = el("input", { type: "radio", name: "pchoice", value: l, id: "pc-" + l });
       radio.addEventListener("change", function () { choice.p = l; grid.querySelectorAll(".piste-card").forEach(function (c) { c.classList.toggle("chosen", c.dataset.p === l); }); });
       grid.appendChild(el("article", { class: "piste-card", "data-p": l }, [
