@@ -934,5 +934,11 @@
   EXT.forEach(function (x) { if (x.init) x.init(window.ChromaApp); });
   start();
   // Lien vers une section (#metier ou go=metier) : y aller une fois la page dessinée.
-  if (section) { var goNow = section; requestAnimationFrame(function () { setTimeout(function () { goSection(goNow, "instant"); }, 60); }); }
+  if (section) {
+    // Deux passages : tout de suite, puis une fois les polices chargées (la mise en page bouge) — sauf si l'utilisateur a déjà défilé.
+    var goNow = section, moved = false, mark = function () { moved = true; };
+    ["wheel", "touchstart", "keydown"].forEach(function (k) { window.addEventListener(k, mark, { once: true, passive: true }); });
+    setTimeout(function () { goSection(goNow, "instant"); }, 60);
+    if (document.fonts && document.fonts.ready) document.fonts.ready.then(function () { setTimeout(function () { if (!moved && section === goNow) goSection(goNow, "instant"); }, 120); });
+  }
 })();
