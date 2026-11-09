@@ -272,12 +272,11 @@ test("import : piste, statut et note d'intention conservés et bornés", () => {
 test("contraste : seuils WCAG sur la valeur non arrondie, ratio affiché tronqué", () => {
   assert.equal(C.ratioText(4.46), "4.4"); assert.equal(C.ratioText(4.5), "4.5"); assert.equal(C.ratioText(2.99), "2.9");
   assert.equal(C.textUse(4.49), "large"); assert.equal(C.textUse(4.5), "body"); assert.equal(C.textUse(2.99), "none"); assert.equal(C.textUse(1.6), "none");
-  // 1,6:1 n'est jamais présenté comme bon pour un titre ; la correction proposée atteint 4,5:1.
-  const low = C.jobChecks("graphisme", ["#c0c0c0", "#d0d0d0"])[0];
-  assert.equal(low.lv, "warn"); assert.equal(low.v.use, "none");
-  assert.ok(C.contrast(low.v.fix, low.v.b) >= 4.5);
-  if (low.v.adj) assert.ok(C.contrast(low.v.adj, low.v.b) >= 4.5);
-  const mid = C.jobChecks("graphisme", ["#d94d99", "#ffffff"])[0];
+  // 1,6:1 n'est jamais présenté comme bon pour un titre ; la correction proposée (blanc ou noir) atteint 4,5:1.
+  const low = C.jobChecks("graphisme", ["#c0c0c0", "#d0d0d0"], { bg: 0, surface: 1, text: 1, accent: 1 })[0];
+  assert.equal(low.k, "u.text"); assert.equal(low.lv, "warn"); assert.equal(low.v.use, "none");
+  assert.ok(C.contrast(low.v.fix === "w" ? "#ffffff" : "#141413", low.v.b) >= 4.5);
+  const mid = C.jobChecks("graphisme", ["#d94d99", "#ffffff"], { bg: 0, surface: 1, text: 1, accent: 1 })[0];
   assert.equal(mid.v.use, "large");
 });
 
@@ -358,4 +357,26 @@ test("supports : 4 modèles MML par métier, recolorés avec l'accord", () => {
   const h = C.hashOf(Object.assign(C.readHash("#c=c4663f&n=243"), { model: 3 }));
   assert.ok(h.includes("m=3")); assert.equal(C.readHash(h).model, 3); assert.equal(C.keyOf(h), C.keyOf("#c=c4663f&n=243"));
   assert.equal(C.readHash("#c=c4663f&n=243&m=9").model, 1);
+});
+
+test("usages : fond, surface, texte, accent ; contrôles sur les couples utilisés", () => {
+  const cs = ["#c4663f", "#ebd999", "#58771e", "#1b3644"];
+  const d = C.defaultUsage(cs);
+  assert.equal(d.bg, 0); assert.equal(d.surface, 1); assert.equal(d.accent, 3);
+  assert.ok(C.contrast(C.usageHex(cs, d).text, cs[0]) >= 4.5, "texte par défaut lisible sur le fond");
+  // Inverser texte et fond change le contrôle.
+  const inv = { bg: 3, surface: 1, text: 1, accent: 0 };
+  const a = C.usageChecks(cs, d).find((c) => c.k === "u.text"), b = C.usageChecks(cs, inv).find((c) => c.k === "u.text");
+  assert.notEqual(a.v.b, b.v.b); assert.equal(b.v.b, "#1b3644");
+  // Lien : u= gardé, relu, ignoré par keyOf ; valeurs invalides refusées.
+  const h = C.hashOf(Object.assign(C.readHash("#c=c4663f&n=243"), { usage: inv }));
+  assert.ok(h.includes("u=3.1.1.0")); assert.deepEqual(C.readHash(h).usage, inv); assert.equal(C.keyOf(h), C.keyOf("#c=c4663f&n=243"));
+  assert.equal(C.readHash("#c=c4663f&n=243&u=0.1.0.2").usage, null, "texte = fond refusé");
+  assert.equal(C.readHash("#c=c4663f&n=243&u=0.1.x.2").usage, null);
+  assert.deepEqual(C.usageOf(["#000000", "#ffffff"], inv), C.defaultUsage(["#000000", "#ffffff"]), "indices hors accord : usages par défaut");
+  // Analyses métier : texte et éléments graphiques suivent les usages.
+  const ui = C.jobChecks("ui", cs, inv).map((c) => c.k);
+  assert.deepEqual(ui, ["u.btn", "u.text", "u.acc", "cvd"]);
+  const acc = C.usageChecks(["#ffffff", "#f0f0f0", "#eeeeee"], { bg: 0, surface: 1, text: "k", accent: 2 }).find((c) => c.k === "u.acc");
+  assert.equal(acc.lv, "warn"); assert.ok(C.contrast(acc.v.adj, "#ffffff") >= 3);
 });

@@ -378,9 +378,54 @@
     var low = cs.map(function (c) { return c.toLowerCase(); }), lk = (locked || []).map(function (c) { return c.toLowerCase(); });
     return { r: ratioText(best), use: textUse(best), close: minD < 0.08 ? close : null, locked: lk.length, kept: lk.filter(function (c) { return low.indexOf(c) >= 0; }).length };
   }
-  function jobChecks(job, cs) {
-    var j = JOBS[job] || JOBS.interieur;
-    return j.c.map(function (k) { var r = CHECKS[k](cs); return { k: k, lv: r.lv, v: r.v }; });
+  /* ---------- usages : quelle couleur fait quoi (fond, surface secondaire, texte, accent) ----------
+     Valeurs : indice de la couleur dans l'accord affiché, ou "w" / "k" (blanc / noir) pour le texte.
+     Lien : u=fond.surface.texte.accent (absent = usages par défaut). */
+  var USES = ["bg", "surface", "text", "accent"], INK = { w: "#ffffff", k: "#141413" };
+  function defaultUsage(cs) {
+    var n = cs.length, bg = 0, surface = 1, accent = n >= 3 ? n - 1 : 1;
+    var best = cs.map(function (c, i) { return [i, contrast(c, cs[bg])]; }).filter(function (x) { return x[0] !== bg; }).sort(function (a, b) { return b[1] - a[1]; })[0];
+    var text = best && best[1] >= 4.5 ? best[0] : (readableOn(cs[bg]).c === "#ffffff" ? "w" : "k");
+    return { bg: bg, surface: surface, text: text, accent: accent };
+  }
+  function cleanUsage(u, n) {
+    if (!u || typeof u !== "object") return null;
+    var ok = USES.every(function (k) { var v = u[k]; return (k === "text" && (v === "w" || v === "k")) || (v === Math.round(v) && v >= 0 && v < n); });
+    return ok && u.bg !== u.text ? { bg: u.bg, surface: u.surface, text: u.text, accent: u.accent } : null;
+  }
+  function usageOf(cs, u) { return cleanUsage(u, cs.length) || defaultUsage(cs); }
+  function usageHex(cs, u) { u = usageOf(cs, u); var o = {}; USES.forEach(function (k) { o[k] = INK[u[k]] || cs[u[k]]; }); return o; }
+  function sameUsage(a, b) { return !!a && !!b && USES.every(function (k) { return a[k] === b[k]; }); }
+  function readUsage(s) {
+    var p = String(s || "").split("."); if (p.length !== 4) return null;
+    var u = {}; USES.forEach(function (k, i) { u[k] = p[i] === "w" || p[i] === "k" ? p[i] : /^[0-3]$/.test(p[i]) ? +p[i] : -1; });
+    return cleanUsage(u, 4);
+  }
+  function usageText(u) { return USES.map(function (k) { return u[k]; }).join("."); }
+  // Contrôles sur les couples réellement utilisés ; chaque alerte nomme le composant et propose une correction.
+  function usageChecks(cs, u) {
+    var h = usageHex(cs, u), out = [], r;
+    function fixText(bg) { var f = readableOn(bg); return { fix: f.c === "#ffffff" ? "w" : "k", fr: ratioText(f.r) }; }
+    r = contrast(h.text, h.bg);
+    out.push(r >= 4.5 ? { k: "u.text", lv: "ok", v: { a: h.text, b: h.bg, r: ratioText(r) } } : { k: "u.text", lv: "warn", v: Object.assign({ a: h.text, b: h.bg, r: ratioText(r), use: textUse(r) }, fixText(h.bg)) });
+    if (h.surface !== h.bg) {
+      r = contrast(h.text, h.surface);
+      out.push(r >= 4.5 ? { k: "u.surf", lv: "ok", v: { a: h.text, b: h.surface, r: ratioText(r) } } : { k: "u.surf", lv: "warn", v: Object.assign({ a: h.text, b: h.surface, r: ratioText(r), use: textUse(r) }, fixText(h.surface)) });
+    }
+    r = contrast(h.accent, h.bg);
+    out.push(r >= 3 ? { k: "u.acc", lv: "ok", v: { a: h.accent, b: h.bg, r: ratioText(r) } } : { k: "u.acc", lv: "warn", v: { a: h.accent, b: h.bg, r: ratioText(r), adj: towards(h.accent, h.bg, 3) } });
+    var onAcc = readableOn(h.accent);
+    out.push({ k: "u.btn", lv: onAcc.r >= 4.5 ? "ok" : "warn", v: { a: onAcc.c, b: h.accent, r: ratioText(onAcc.r) } });
+    return out;
+  }
+  // Texte, éléments graphiques et boutons : jugés sur les couples réellement utilisés (usages), pas sur le meilleur couple.
+  var BY_USAGE = { text: "u.text", nontext: "u.acc", roles: "u.btn" };
+  function jobChecks(job, cs, u) {
+    var j = JOBS[job] || JOBS.interieur, uc = null;
+    return j.c.map(function (k) {
+      if (BY_USAGE[k]) { uc = uc || usageChecks(cs, u); var x = uc.filter(function (c) { return c.k === BY_USAGE[k]; })[0]; return { k: x.k, lv: x.lv, v: x.v }; }
+      var r = CHECKS[k](cs); return { k: k, lv: r.lv, v: r.v };
+    });
   }
 
   /* ---------- gamme : clairs et foncés d'une couleur (charte, interface, déclinaisons) ----------
@@ -419,8 +464,8 @@
   }
 
   /* ---------- note d'intention : les faits, les mots viennent de i18n.js ---------- */
-  function intentFacts(cs, job) {
-    var checks = jobChecks(job, cs), L = cs.map(function (c) { return lch(c)[0]; }), r = Math.max.apply(null, L) - Math.min.apply(null, L);
+  function intentFacts(cs, job, u) {
+    var checks = jobChecks(job, cs, u), L = cs.map(function (c) { return lch(c)[0]; }), r = Math.max.apply(null, L) - Math.min.apply(null, L);
     return { harmony: harmonyOf(cs), temp: tempOf(cs), contrast: r < 0.25 ? "doux" : r < 0.5 ? "moyen" : "fort",
       ok: checks.filter(function (c) { return c.lv === "ok"; }).length, warn: checks.filter(function (c) { return c.lv === "warn"; }), checks: checks };
   }
@@ -456,7 +501,7 @@
     String(h || "").replace(/^#/, "").split("&").forEach(function (kv) { var i = kv.indexOf("="); if (i > 0) { try { q[kv.slice(0, i)] = decodeURIComponent(kv.slice(i + 1)); } catch (e) {} } });
     var c = q.c ? parseHex(q.c) : null; if (!c) return null;
     return { seed: c, seed2: q.c2 ? parseHex(q.c2) : null, n: Math.max(0, Math.min(999, parseInt(q.n, 10) || 0)),
-      order: q.o ? q.o.split(".").map(Number) : null, parts: q.p ? cleanParts(q.p.split(".").map(Number)) : null, size: [2, 3, 4].indexOf(+q.t) >= 0 ? +q.t : 0,
+      order: q.o ? q.o.split(".").map(Number) : null, parts: q.p ? cleanParts(q.p.split(".").map(Number)) : null, usage: q.u ? readUsage(q.u) : null, size: [2, 3, 4].indexOf(+q.t) >= 0 ? +q.t : 0,
       substitute: q.ex !== "0", transpose: q.tr === "1", scene: SCENES.indexOf(q.sc) >= 0 ? q.sc : "interieur", model: /^[0-4]$/.test(q.m || "") ? +q.m : 1,
       source: SOURCES.indexOf(q.s) > 0 ? q.s : "wada",
       locked: q.c2 && parseHex(q.c2) ? 2 : q.k === "1" ? 1 : 0,
@@ -469,6 +514,7 @@
     if (k.n) p.push("n=" + k.n);
     if (k.n && k.order) p.push("o=" + k.order.join("."));
     if (k.n && k.parts && cleanParts(k.parts)) p.push("p=" + k.parts.join("."));
+    if (k.n && k.usage && readUsage(usageText(k.usage))) p.push("u=" + usageText(k.usage));
     if (k.size) p.push("t=" + k.size);
     if (!k.substitute) p.push("ex=0");
     if (k.transpose) p.push("tr=1");
@@ -508,7 +554,7 @@
     PROPS: PROPS, cleanParts: cleanParts, partsOf: partsOf, setPart: setPart, sameParts: sameParts, rolesOf: rolesOf, slugsOf: slugsOf, fid: fid, createSearch: createSearch, build: build, kindOf: kindOf,
     simulate: simulate, confusions: confusions, CVD_TYPES: Object.keys(CVD),
     aseBytes: aseBytes, metaOf: metaOf, tokensText: tokensText, tailwindText: tailwindText, gplText: gplText,
-    whyOf: whyOf, RULES: RULES, ruleCombos: ruleCombos, RULES2: RULES2, ruleCombos2: ruleCombos2, JOBS: JOBS, JOB_IDS: JOB_IDS, FAMILIES: FAMILIES, jobChecks: jobChecks,
+    whyOf: whyOf, USES: USES, defaultUsage: defaultUsage, cleanUsage: cleanUsage, usageOf: usageOf, usageHex: usageHex, sameUsage: sameUsage, readUsage: readUsage, usageText: usageText, usageChecks: usageChecks, RULES: RULES, ruleCombos: ruleCombos, RULES2: RULES2, ruleCombos2: ruleCombos2, JOBS: JOBS, JOB_IDS: JOB_IDS, FAMILIES: FAMILIES, jobChecks: jobChecks,
     SCALE_STEPS: SCALE_STEPS, scaleOf: scaleOf, scaleText: scaleText, recolorLab: recolorLab, intentFacts: intentFacts,
     cleanProposal: cleanProposal, cleanResponse: cleanResponse, packLink: packLink, unpackLink: unpackLink,
     harmonyOf: harmonyOf, tempOf: tempOf, opticalMix: opticalMix, cmykRisk: cmykRisk, videoUnsafe: videoUnsafe,

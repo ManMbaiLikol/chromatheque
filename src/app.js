@@ -71,7 +71,7 @@
   function takeLink(k) {
     state.draft = k.seed; state.locked = k.locked === 2 ? [k.seed, k.seed2] : k.locked === 1 ? [k.seed] : []; sync();
     state.size = k.size; state.substitute = k.substitute; state.transpose = k.transpose; state.scene = k.scene; state.model = k.model == null ? 1 : k.model; state.source = k.source || "wada";
-    state.wantN = k.n; state.wantOrder = k.order; state.wantParts = k.parts;
+    state.wantN = k.n; state.wantOrder = k.order; state.wantParts = k.parts; state.wantUsage = k.usage;
     if (k.lang) lang = k.lang;
   }
   var link = readHash(location.hash);
@@ -79,7 +79,7 @@
   if (link) takeLink(link);
   function shareHash() {
     var cur = current();
-    return hashOf({ seed: state.seed, seed2: state.multi ? state.seed2 : null, locked: state.locked.length, n: cur ? cur.a.n : 0, order: state.order, parts: state.parts, size: state.size, substitute: state.substitute, transpose: state.transpose, scene: state.scene, model: state.model, source: state.source, lang: lang });
+    return hashOf({ seed: state.seed, seed2: state.multi ? state.seed2 : null, locked: state.locked.length, n: cur ? cur.a.n : 0, order: state.order, parts: state.parts, usage: state.usage, size: state.size, substitute: state.substitute, transpose: state.transpose, scene: state.scene, model: state.model, source: state.source, lang: lang });
   }
   function shareUrl() { return location.href.split("#")[0] + shareHash(); }
   // Sections : la destination (go=) est séparée des réglages ; un lien « #metier » garde la palette mémorisée.
@@ -149,10 +149,10 @@
     if (!keepImageChip) document.querySelectorAll(".chip.on").forEach(function (c) { c.classList.remove("on"); });
     renderLocks();
     if (state.locked.length) { save(); return; }
-    sync(); state.sel = 0; state.order = null; state.parts = null; applyAccent(); save(); refresh();
+    sync(); state.sel = 0; state.order = null; state.parts = null; state.usage = null; applyAccent(); save(); refresh();
   }
   function relock(msg) {
-    state.sel = 0; state.order = null; state.parts = null; state.wantN = 0;
+    state.sel = 0; state.order = null; state.parts = null; state.usage = null; state.wantN = 0;
     if (twoLocked() && state.size === 2) { state.size = 0; setPressed("sizeSeg", 0); }
     sync(); applyAccent(); save(); renderLocks(); renderSources(); applySourceUI(); refresh(); if (msg) toast(msg);
   }
@@ -226,7 +226,7 @@
   }
   function setSource(id) {
     if (!SRC[id] || id === state.source) return;
-    state.source = id; state.sel = 0; state.order = null; state.parts = null; state.wantN = 0;
+    state.source = id; state.sel = 0; state.order = null; state.parts = null; state.usage = null; state.wantN = 0;
     applySourceUI(); save(); refresh(); renderDict();
     toast(t("src.pick", { s: srcName(id) }));
   }
@@ -268,8 +268,9 @@
         state.sel = j; var o = state.wantOrder, len = state.list[j].colors.length;
         state.order = o && o.length === len && o.slice().sort().join() === Object.keys(o).join() ? o : null;
         state.parts = state.wantParts && state.wantParts.length === len ? state.wantParts : null;
+        state.usage = C.cleanUsage(state.wantUsage, len);
       }
-      state.wantN = 0; state.wantOrder = null; state.wantParts = null;
+      state.wantN = 0; state.wantOrder = null; state.wantParts = null; state.wantUsage = null;
     }
     var hint;
     if (state.source === "regles") hint = t(res.two ? "res.rules2" : "res.rules", { n: all.length });
@@ -293,7 +294,7 @@
         el("span", { class: "why", text: whyText(a.colors) }),
         el("span", { class: "card-foot" }, [el("span", { class: "score", text: a.rule ? t("tag.rule") : t("card.gap", { d: (a.d * 100).toFixed(1) }) }), el("span", { class: "arrow", "aria-hidden": "true", text: "→" })])
       ].filter(Boolean));
-      b.addEventListener("click", function () { state.sel = i; state.order = null; state.parts = null; refreshCards(); renderDetail(); });
+      b.addEventListener("click", function () { state.sel = i; state.order = null; state.parts = null; state.usage = null; refreshCards(); renderDetail(); });
       var li = el("li", { class: "card-li" }, [b]);
       hook("card", a, li);
       ul.appendChild(li);
@@ -373,6 +374,39 @@
     if (w.locked) bits.push(t(w.kept === w.locked ? "why.kept" : "why.notkept", { n: w.locked }));
     return bits.join(" · ");
   }
+  // Usages : quelle couleur sert de fond, de surface secondaire, de texte, d'accent. Les contrôles portent sur ces couples.
+  function usageNow(cs) { return C.usageOf(cs, state.usage); }
+  function setUsage(cs, u) {
+    state.usage = C.sameUsage(u, C.defaultUsage(cs)) ? null : u;
+    var k = inProject(); renderDetail(); if (k >= 0) { project().items[k].hash = snapshot().hash; persist(); }
+  }
+  function renderUsage(cs, roles) {
+    var u = usageNow(cs), box = $("usage"); box.textContent = "";
+    $("usageReset").disabled = !state.usage;
+    C.USES.forEach(function (key) {
+      var opts = cs.map(function (c, i) { return [i, c, roles[i] + " · " + nameOf(c) + " " + c.toUpperCase()]; });
+      if (key === "text") opts = opts.concat([["w", "#ffffff", t("white")], ["k", "#141413", t("black")]]);
+      var lab = "use-" + key, row = el("div", { class: "use-row", role: "group", "aria-labelledby": lab }, [el("span", { class: "use-k", id: lab, text: t("use.k." + key) })]);
+      opts.forEach(function (o) {
+        var bad = (key === "text" && o[0] === u.bg) || (key === "bg" && o[0] === u.text);
+        var b = el("button", { type: "button", class: "use-sw", style: "background:" + o[1], title: o[2], "aria-label": o[2], "aria-pressed": String(u[key] === o[0]) });
+        if (bad) b.disabled = true;
+        b.addEventListener("click", function () { var n = Object.assign({}, u); n[key] = o[0]; setUsage(cs, n); });
+        row.appendChild(b);
+      });
+      box.appendChild(row);
+    });
+    var ul = $("usageChecks"); ul.textContent = "";
+    C.usageChecks(cs, u).forEach(function (c) {
+      var kids = [el("span", { class: "ico", "aria-hidden": "true", text: c.lv === "ok" ? "✓" : "!" }), el("span", { text: checkText(c) })];
+      if (c.lv === "warn" && c.v.fix && c.k === "u.text") {
+        var fixB = el("button", { type: "button", class: "mini", text: t("use.apply", { c: t(c.v.fix === "w" ? "white" : "black") }) });
+        fixB.addEventListener("click", function () { var n = Object.assign({}, u); n.text = c.v.fix; setUsage(cs, n); toast(t("use.applied")); });
+        kids.push(fixB);
+      }
+      ul.appendChild(el("li", { class: "chk " + c.lv }, kids));
+    });
+  }
   function renderParts(cs, parts, roles) {
     var box = $("parts"), sig = cs.join() + "|" + lang;
     $("partsReset").disabled = !state.parts;
@@ -400,6 +434,7 @@
     $("detailSource").textContent = src === "wada" ? "" : (e ? e.g[lang] + " · " : "") + cs.map(nameOf).join(" · ");
     renderFid(a, src);
     renderParts(cs, parts, rolesFor(src, cs.length));
+    renderUsage(cs, rolesFor(src, cs.length));
     var big = $("bigsw"); big.textContent = "";
     cs.forEach(function (c, i) { var s = sim(c), r = readableOn(s); big.appendChild(el("div", { style: "background:" + s + ";color:" + r.c + ";flex:" + parts[i] }, [document.createTextNode(parts[i] + " %")])); });
     var roles = rolesFor(src, cs.length);
@@ -473,11 +508,12 @@
     if (TYPE_PREFIX[c.k]) v.type = t(TYPE_PREFIX[c.k] + c.v.type);
     if (c.k === "cvd" && c.v.t) v.t = t("cvd." + c.v.t);
     if (c.k === "text" && c.lv === "warn") { v.use = t("use." + c.v.use); v.adj = c.v.adj ? t("chk.text.adj", { a: v.adj }) : ""; }
+    if (/^u\./.test(c.k)) { if (c.v.use) v.use = t("use." + c.v.use); if (c.v.fix) v.fix = t(c.v.fix === "w" ? "white" : "black"); }
     return t("chk." + (/^light/.test(c.k) ? "light" : c.k) + "." + c.lv, v);
   }
-  function jobLines(cs) { return C.jobChecks(state.scene, cs).map(function (c) { return { lv: c.lv, text: checkText(c) }; }); }
+  function jobLines(cs) { return C.jobChecks(state.scene, cs, usageNow(cs)).map(function (c) { return { lv: c.lv, text: checkText(c) }; }); }
   function sceneSvg(cs, n) {
-    return SCENES.render(state.scene, cs, { aria: t("scene.aria", { j: t("job." + state.scene) }), label: shortLabel(state.source, n), webTitle: t("scene.web.title"), model: state.model });
+    return SCENES.render(state.scene, cs, { aria: t("scene.aria", { j: t("job." + state.scene) }), label: shortLabel(state.source, n), webTitle: t("scene.web.title"), model: state.model, usage: usageNow(cs) });
   }
   // Supports du métier : 4 modèles MML (n° 1 à 4) et l'esquisse d'origine (n° 0). Gardé dans le lien (m=).
   // Légende de la mise en situation : le support choisi et la règle des rôles, ou la description de l'esquisse.
@@ -544,6 +580,7 @@
       doCopy(txt, k === "link" ? t(location.protocol === "file:" ? "toast.link.file" : "toast.link") : t("toast." + k));
     });
   });
+  $("usageReset").addEventListener("click", function () { var cur = current(); if (cur) setUsage(cur.colors, C.defaultUsage(cur.colors)); });
   $("partsReset").addEventListener("click", function () { state.parts = null; var k = inProject(); renderDetail(); if (k >= 0) { project().items[k].hash = snapshot().hash; persist(); } });
   $("rotate").addEventListener("click", function () { var cur = current(); if (!cur) return; var o = cur.order.slice(); o.push(o.shift()); state.order = o; toast(t("dominant", { x: nameOf(cur.a.colors[o[0]]) })); renderDetail(); });
 
@@ -691,7 +728,7 @@
       });
     });
   }
-  seg("sizeSeg", "size", function () { state.sel = 0; state.order = null; state.parts = null; refresh(); });
+  seg("sizeSeg", "size", function () { state.sel = 0; state.order = null; state.parts = null; state.usage = null; refresh(); });
   seg("lightSeg", "light", renderDetail);
   seg("visionSeg", "vision", renderDetail);
   seg("dictSeg", "dictSize", renderDict);
@@ -699,7 +736,7 @@
     b.addEventListener("click", function () {
       if (b.dataset.v === lang) return;
       lang = b.dataset.v; try { localStorage.setItem(LANG_KEY, lang); } catch (e) {}
-      var cur = current(); if (cur) { state.wantN = cur.a.n; state.wantOrder = state.order; state.wantParts = state.parts; }  // garder l'accord affiché
+      var cur = current(); if (cur) { state.wantN = cur.a.n; state.wantOrder = state.order; state.wantParts = state.parts; state.wantUsage = state.usage; }  // garder l'accord affiché
       toast(""); applyLang();
     });
   });
@@ -985,7 +1022,7 @@
     var e = entryOf(src, it.n);
     return { hash: it.hash, n: it.n, src: src, two: two, colors: cs, scene: scene, seed: k.seed, srcName: srcName(src), fid: fid,
       model: k.model == null ? 1 : k.model, title: src === "wada" ? "Sanzo Wada " + num(it.n) : longLabel(src, it.n, two), group: e ? e.g[lang] : "", roles: rolesFor(src, cs.length), parts: C.partsOf(cs.length, k.parts),
-      checks: C.jobChecks(scene, cs).map(function (c) { return { lv: c.lv, text: checkText(c) }; }), piste: it.piste || "", intent: it.intent || "" };
+      usage: C.usageOf(cs, k.usage), checks: C.jobChecks(scene, cs, C.usageOf(cs, k.usage)).map(function (c) { return { lv: c.lv, text: checkText(c) }; }), piste: it.piste || "", intent: it.intent || "" };
   }
   window.ChromaApp = {
     C: C, t: t, lang: function () { return lang; }, nameOf: nameOf, num: num, el: el, $: $, toast: toast, download: download, doCopy: doCopy,

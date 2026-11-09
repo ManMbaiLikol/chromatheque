@@ -555,3 +555,12 @@ html.simple [data-expert], html.simple .fid-method, html.simple .fid-line small 
 .support { display: grid; gap: 6px; margin: 10px 0 }
 .wrap-seg { display: flex; flex-wrap: wrap; height: auto; border-radius: 14px }
 .wrap-seg button { white-space: normal; text-align: left; line-height: 1.25; padding: 7px 12px }
+/* Usages : fond, surface, texte, accent */
+.usage-box { display: grid; gap: 8px; margin: 12px 0 }
+.usage { display: grid; gap: 6px }
+.use-row { display: flex; flex-wrap: wrap; align-items: center; gap: 6px }
+.use-k { min-width: 140px; font-size: 13px; font-weight: 600 }
+.use-sw { width: 34px; height: 34px; border-radius: 9px; border: 1px solid var(--line); padding: 0; box-shadow: inset 0 0 0 1px rgba(0,0,0,.08) }
+.use-sw[aria-pressed=true] { outline: 3px solid var(--ink); outline-offset: 2px }
+.use-sw:disabled { opacity: .25; cursor: not-allowed }
+#usageChecks .mini { margin-left: 8px }

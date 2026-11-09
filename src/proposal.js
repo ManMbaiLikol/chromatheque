@@ -32,7 +32,7 @@
 
   /* ---------- note d'intention : générée depuis l'accord, retouchable ---------- */
   function intentText(info) {
-    var f = C.intentFacts(info.colors, info.scene), cs = info.colors, p = info.parts, L = [];
+    var f = C.intentFacts(info.colors, info.scene, info.usage), cs = info.colors, p = info.parts, L = [];
     var nm = function (i) { return A.nameOf(cs[i]) + " (" + p[i] + " %)"; };
     if (info.src === "wada") L.push(t("intent.src.wada", { n: info.n }));
     else if (info.src === "regles") L.push(t("intent.src.regles", { name: info.title, seed: A.nameOf(cs[0]) }));
@@ -155,14 +155,14 @@
     PISTES.forEach(function (l) {
       var it = p.items.find(function (o) { return o.piste === l; });
       if (!it) { box.appendChild(el("div", { class: "slot empty" }, [el("span", { class: "piste-badge", "aria-hidden": "true", text: l }), el("p", { class: "hint", text: t("slot.empty", { x: l }) })])); return; }
-      var info = A.itemInfo(it), f = C.intentFacts(info.colors, info.scene);
+      var info = A.itemInfo(it), f = C.intentFacts(info.colors, info.scene, info.usage);
       var open = el("button", { type: "button", class: "mini", text: t("slot.open") }); open.addEventListener("click", function () { A.openHash(it.hash); });
       var rm = el("button", { type: "button", class: "mini", "aria-label": t("slot.remove", { x: l }), text: "×" }); rm.addEventListener("click", function () { it.piste = ""; A.persist(); A.renderProjects(); refreshCardPistes(); });
       box.appendChild(el("article", { class: "slot" }, [
         el("div", { class: "slot-top" }, [el("span", { class: "piste-badge", "aria-hidden": "true", text: l }), el("div", { class: "slot-title" }, [el("b", { text: info.title }), el("small", { text: info.srcName + (info.fid ? " · " + info.fid : "") })]), rm]),
         el("div", { class: "sw" }, info.colors.map(function (c, j) { return el("i", { style: "background:" + c + ";flex:" + info.parts[j], title: c.toUpperCase() }); })),
         // Même métier, même dessin, même cadrage pour les trois pistes : seules les couleurs changent.
-        el("img", { class: "slot-scene", style: (function () { var z = A.SCENES.size(info.scene, info.model); return "aspect-ratio:" + z.w + "/" + z.h; })(), alt: t("slot.scene", { x: l, j: t("job." + info.scene) }), src: A.svgSrc(A.SCENES.render(info.scene, info.colors, { aria: "", label: info.title, webTitle: t("scene.web.title"), model: info.model })) }),
+        el("img", { class: "slot-scene", style: (function () { var z = A.SCENES.size(info.scene, info.model); return "aspect-ratio:" + z.w + "/" + z.h; })(), alt: t("slot.scene", { x: l, j: t("job." + info.scene) }), src: A.svgSrc(A.SCENES.render(info.scene, info.colors, { aria: "", label: info.title, webTitle: t("scene.web.title"), model: info.model, usage: info.usage })) }),
         el("dl", { class: "slot-facts" }, [
           el("dt", { text: t("cmp.harmony") }), el("dd", { text: t("harm." + f.harmony) }),
           el("dt", { text: t("cmp.temp") }), el("dd", { text: t("temp." + f.temp) }),
@@ -322,7 +322,7 @@
     x.fillStyle = S.ink; x.font = "800 46px " + F.display; x.fillText(t("dossier.compare"), M, M);
     var W = (S.w - 2 * M - 40 * (infos.length - 1)) / infos.length;
     infos.forEach(function (info, i) {
-      var X = M + i * (W + 40), Y = 170, f = C.intentFacts(info.colors, info.scene);
+      var X = M + i * (W + 40), Y = 170, f = C.intentFacts(info.colors, info.scene, info.usage);
       letter(x, info.piste, X, Y, 22);
       x.fillStyle = S.ink; x.font = "700 20px " + F.display; x.fillText(A.fitText(x, info.title, W - 60), X + 58, Y + 8);
       band(x, info.colors, info.parts, X, Y + 64, W, 110, false);
@@ -388,7 +388,7 @@
     var wanted = ["800 40px " + A.FONT.display, "400 16px " + A.FONT.body, "700 16px " + A.FONT.body, "italic 400 16px " + A.FONT.body, "400 14px " + A.FONT.mono];
     var fonts = document.fonts ? Promise.all(wanted.map(function (f) { return document.fonts.load(f).catch(function () {}); })) : Promise.resolve();
     var imgs = infos.map(function (info) {
-      return A.svgImage(A.SCENES.render(info.scene, info.colors, { aria: "", label: info.title, webTitle: t("scene.web.title"), model: info.model })).catch(function () { return null; });
+      return A.svgImage(A.SCENES.render(info.scene, info.colors, { aria: "", label: info.title, webTitle: t("scene.web.title"), model: info.model, usage: info.usage })).catch(function () { return null; });
     });
     return Promise.all([fonts].concat(imgs)).then(function (res) {
       var pages = [coverPage(S, p, infos)].concat(infos.map(function (info, i) { return pistePage(S, p, info, res[i + 1]); }));
@@ -450,7 +450,7 @@
     var grid = el("div", { class: "present-grid" }), choice = { p: "" };
     prop.i.forEach(function (it, i) {
       var info = A.itemInfo({ hash: it.h, n: (C.readHash(it.h) || {}).n, colors: it.c }), l = it.p || PISTES[i];
-      var sceneBox = el("div", { class: "scene" }); sceneBox.innerHTML = A.SCENES.render(info.scene, it.c, { aria: t("scene.aria", { j: t("job." + info.scene) }), label: info.title, webTitle: t("scene.web.title"), model: info.model });
+      var sceneBox = el("div", { class: "scene" }); sceneBox.innerHTML = A.SCENES.render(info.scene, it.c, { aria: t("scene.aria", { j: t("job." + info.scene) }), label: info.title, webTitle: t("scene.web.title"), model: info.model, usage: info.usage });
       var radio = el("input", { type: "radio", name: "pchoice", value: l, id: "pc-" + l });
       radio.addEventListener("change", function () { choice.p = l; grid.querySelectorAll(".piste-card").forEach(function (c) { c.classList.toggle("chosen", c.dataset.p === l); }); });
       grid.appendChild(el("article", { class: "piste-card", "data-p": l }, [

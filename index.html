@@ -13,7 +13,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,400..800&amp;family=Fraunces:ital,opsz,wght@0,9..144,400..700;1,9..144,400..600&amp;family=Plus+Jakarta+Sans:wght@400;500;600;700&amp;family=IBM+Plex+Mono:wght@400;500&amp;family=Shippori+Mincho:wght@600&amp;display=swap">
-<link rel="stylesheet" href="src/styles.css?v=20261109g">
+<link rel="stylesheet" href="src/styles.css?v=20261110">
 </head>
 <body>
 <a class="skip" href="#couleur" data-i18n="h.skip">Aller à l'outil</a>
@@ -166,6 +166,12 @@
         <div class="parts-head"><p class="label" data-i18n="h.parts">Proportions</p><button class="mini" type="button" id="partsReset" data-i18n="h.parts.reset">Proportions par défaut</button></div>
         <div class="parts" id="parts"></div>
         <p class="hint" data-i18n="h.parts.hint">Convention MML, pas Wada : règle la part de chaque couleur, les autres s'ajustent. Gardé dans le lien, le projet, la planche et les exports.</p>
+      </div>
+      <div class="usage-box" data-expert>
+        <div class="parts-head"><p class="label" data-i18n="h.usage">Usages</p><button class="mini" type="button" id="usageReset" data-i18n="h.usage.reset">Usages par défaut</button></div>
+        <p class="hint" data-i18n="h.usage.hint">Choisis la couleur du fond, de la surface secondaire, du texte et de l'accent (boutons, icônes) : les contrôles et la mise en situation suivent.</p>
+        <div class="usage" id="usage"></div>
+        <ul class="impact compact" id="usageChecks" aria-label="Contrôles des usages" data-i18n-attr="aria-label=h.usage.checks"></ul>
       </div>
       <div class="rows" id="rows"></div>
       <div class="actions">
@@ -414,14 +420,14 @@
 <p class="toast" id="toast" role="status"></p>
 <img class="print-sheet" id="printSheet" alt="Planche de l'accord" data-i18n-attr="alt=h.sheet.alt">
 <div class="print-pages" id="printPages"></div>
-<script src="src/core.js?v=20261109g"></script>
-<script src="src/i18n.js?v=20261109g"></script>
-<script src="src/wada-data.js?v=20261109g"></script>
-<script src="src/sources-data.js?v=20261109g"></script>
-<script src="src/models-data.js?v=20261109g"></script>
-<script src="src/scenes.js?v=20261109g"></script>
-<script src="src/proposal.js?v=20261109g"></script>
-<script src="src/recolor.js?v=20261109g"></script>
-<script src="src/app.js?v=20261109g"></script>
+<script src="src/core.js?v=20261110"></script>
+<script src="src/i18n.js?v=20261110"></script>
+<script src="src/wada-data.js?v=20261110"></script>
+<script src="src/sources-data.js?v=20261110"></script>
+<script src="src/models-data.js?v=20261110"></script>
+<script src="src/scenes.js?v=20261110"></script>
+<script src="src/proposal.js?v=20261110"></script>
+<script src="src/recolor.js?v=20261110"></script>
+<script src="src/app.js?v=20261110"></script>
 </body>
 </html>

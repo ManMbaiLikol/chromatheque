@@ -186,13 +186,23 @@
   function list(job) { return MODELS && MODELS.jobs[job] ? MODELS.jobs[job] : []; }
   function modelOf(m) { m = +m; return m >= 0 && m <= 4 && m === Math.round(m) ? m : DEFAULT; }
   function size(job, m) { m = modelOf(m); return m && list(job)[m - 1] ? { w: MODELS.w, h: MODELS.h } : { w: 480, h: 340 }; }
-  function roleVars(cs) {
-    var c = [cs[0], cs[1], cs[2] || cs[1], cs[3] || cs[2] || cs[0]], o = {};
-    ["primary", "secondary", "accent", "accent-2"].forEach(function (r, i) { o["--chroma-" + r] = c[i]; o["--chroma-" + r + "-text"] = ink(c[i]); });
+  // Avec des usages (core : fond, surface, texte, accent) : primary = fond, secondary = surface, accent = accent,
+  // accent-2 = la couleur restante ; le texte choisi est gardé là où il est lisible (≥ 4,5:1), sinon blanc ou noir.
+  function roleVars(cs, usage) {
+    var c, txt = null;
+    if (usage && C) {
+      var h = C.usageHex(cs, usage), used = [h.bg, h.surface, h.accent], rest = cs.filter(function (x) { return used.indexOf(x) < 0; })[0];
+      c = [h.bg, h.surface, h.accent, rest || h.surface]; txt = h.text;
+    } else c = [cs[0], cs[1], cs[2] || cs[1], cs[3] || cs[2] || cs[0]];
+    var o = {};
+    ["primary", "secondary", "accent", "accent-2"].forEach(function (r, i) {
+      o["--chroma-" + r] = c[i];
+      o["--chroma-" + r + "-text"] = txt && C.contrast(txt, c[i]) >= 4.5 ? txt : ink(c[i]);
+    });
     return o;
   }
   function renderModel(mod, cs, o) {
-    var v = roleVars(cs), pre = "c" + (++uid) + "-", s = mod.svg.replace(/var\((--chroma-[a-z0-9-]+)\)/g, function (all, k) { return v[k] || all; });
+    var v = roleVars(cs, o.usage), pre = "c" + (++uid) + "-", s = mod.svg.replace(/var\((--chroma-[a-z0-9-]+)\)/g, function (all, k) { return v[k] || all; });
     s = s.replace(/(\s)id="([^"]+)"/g, function (_, sp, id) { return sp + 'id="' + pre + id + '"'; }).replace(/url\(#([^)]+)\)/g, function (_, id) { return "url(#" + pre + id + ")"; });
     if (o.aria != null) s = s.replace(/aria-label="[^"]*"/, 'aria-label="' + esc(o.aria) + '"');
     return s;
