@@ -13,7 +13,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,400..800&amp;family=Fraunces:ital,opsz,wght@0,9..144,400..700;1,9..144,400..600&amp;family=Plus+Jakarta+Sans:wght@400;500;600;700&amp;family=IBM+Plex+Mono:wght@400;500&amp;family=Shippori+Mincho:wght@600&amp;display=swap">
-<link rel="stylesheet" href="src/styles.css?v=20261109b">
+<link rel="stylesheet" href="src/styles.css?v=20261109d">
 </head>
 <body>
 <a class="skip" href="#couleur" data-i18n="h.skip">Aller à l'outil</a>
@@ -46,6 +46,13 @@
     <a class="tool" href="#couleur"><span class="tool-sw" id="tbSeed" aria-hidden="true"></span><span class="tool-k" data-i18n="h.nav.color">Couleur</span><b id="tbSeedV"></b></a>
     <a class="tool" href="#sources"><span class="tool-k" data-i18n="h.tb.source">Source</span><b id="tbSrc"></b><span class="chev" aria-hidden="true">⌄</span></a>
     <a class="tool" href="#metier"><span class="tool-k" data-i18n="h.nav.job">Métier</span><b id="tbJob"></b><span class="chev" aria-hidden="true">⌄</span></a>
+    <div class="tool mode" title="Simple : l'essentiel. Expert : transposition, simulations, valeurs techniques, gammes et exports logiciels." data-i18n-attr="title=h.mode.t">
+      <span class="tool-k" id="modeLabel" data-i18n="h.mode">Mode</span>
+      <div class="seg" role="group" aria-labelledby="modeLabel" id="modeSeg">
+        <button type="button" data-v="simple" aria-pressed="false" data-i18n="h.mode.simple">Simple</button>
+        <button type="button" data-v="expert" aria-pressed="true" data-i18n="h.mode.expert">Expert</button>
+      </div>
+    </div>
   </nav>
 
   <section class="hero">
@@ -123,7 +130,7 @@
             <button type="button" data-v="4" aria-pressed="false">4</button>
           </div>
         </div>
-        <div class="opts" id="dictOpts">
+        <div class="opts" id="dictOpts" data-expert>
           <label class="check"><input type="checkbox" id="substitute" checked> <span data-i18n="h.substitute">Mettre ma couleur exacte à la place de sa voisine dans l'accord</span></label>
           <label class="check"><input type="checkbox" id="transpose"> <span data-i18n-html="h.transpose">Transposer les autres couleurs vers ma teinte <span class="hint">(interprétation, plus du Wada strict)</span></span></label>
         </div>
@@ -150,6 +157,7 @@
       </div>
       <p class="hint" id="pistesHint" data-i18n="h.pistes.hint">Clique A, B ou C sous un accord suggéré pour en faire une piste. Ses impacts pour ton métier s'affichent ici, à comparer avant de présenter.</p>
       <div class="slots" id="pisteSlots"></div>
+      <p class="hint" id="pistesDiff" aria-live="polite"></p>
     </section>
 
   <section class="detail reveal" id="accord" aria-live="polite">
@@ -161,6 +169,11 @@
       <p class="hint" id="detailSource"></p>
       <p class="fid-note" id="detailFid"></p>
       <div class="bigsw" id="bigsw"></div>
+      <div class="parts-box">
+        <div class="parts-head"><p class="label" data-i18n="h.parts">Proportions</p><button class="mini" type="button" id="partsReset" data-i18n="h.parts.reset">Proportions par défaut</button></div>
+        <div class="parts" id="parts"></div>
+        <p class="hint" data-i18n="h.parts.hint">Convention MML, pas Wada : règle la part de chaque couleur, les autres s'ajustent. Gardé dans le lien, le projet, la planche et les exports.</p>
+      </div>
       <div class="rows" id="rows"></div>
       <div class="actions">
         <button class="btn" type="button" id="rotate" data-i18n="h.rotate">Changer la couleur dominante</button>
@@ -187,7 +200,7 @@
       <div class="scene" id="scene"></div>
       <p class="hint" id="sceneHint"></p>
       <ul class="impact" id="impact" aria-label="Analyse pour ton métier" data-i18n-attr="aria-label=h.impact"></ul>
-      <div class="sim">
+      <div class="sim" data-expert>
         <div>
           <p class="label" id="lightLabel" data-i18n="h.light">Lumière</p>
           <div class="seg" role="group" aria-labelledby="lightLabel" id="lightSeg">
@@ -267,7 +280,7 @@
         <p class="hint" data-i18n="h.studio.hint">Sur la planche, le dossier de proposition et la vue client. Gardé dans ce navigateur.</p>
       </div>
     </div>
-    <div class="tablewrap" role="region" aria-labelledby="valsCaption" tabindex="0">
+    <div class="tablewrap" role="region" aria-labelledby="valsCaption" tabindex="0" data-expert>
       <table class="vals">
         <caption id="valsCaption" data-i18n-html="h.vals">Valeurs pour la fabrication <span class="hint">CMJN sans profil ICC et LRV estimé depuis l'écran : à confirmer sur nuancier.</span></caption>
         <thead><tr><th scope="col" data-i18n="h.col.color">Couleur</th><th scope="col">HEX</th><th scope="col">RGB</th><th scope="col">HSL</th><th scope="col">OKLCH</th><th scope="col" data-i18n="h.col.cmyk">CMJN ≈</th><th scope="col"><abbr title="Light Reflectance Value : part de lumière réfléchie, de 0 (noir) à 100 (blanc)" data-i18n-attr="title=h.lrv.title">LRV</abbr> ≈</th></tr></thead>
@@ -284,7 +297,7 @@
         </div>
         <p class="hint"><a href="#pistesStrip" data-i18n="h.topistes">Proposer plusieurs pistes à ton client : « Tes pistes, côte à côte » →</a></p>
       </div>
-      <div class="dcard">
+      <div class="dcard" data-expert>
         <p class="label" data-i18n="h.forsoftware">Pour tes logiciels</p>
         <div class="actions">
           <button class="btn ghost" type="button" data-export="ase">Adobe (.ase)</button>
@@ -303,7 +316,7 @@
         </div>
       </div>
     </div>
-    <div class="dcard scale-card">
+    <div class="dcard scale-card" data-expert>
       <div class="dcard-head">
         <p class="label" data-i18n="h.scale">Étendre en gamme</p>
         <div class="actions">
@@ -315,7 +328,7 @@
       <p class="hint" data-i18n="h.scale.hint">11 paliers par couleur, du plus clair (50) au plus foncé (950), dans la même teinte. La couleur de l'accord est marquée ●. Pour une charte, une interface ou des déclinaisons.</p>
       <div class="scales" id="scales"></div>
     </div>
-    <pre class="out" id="out"></pre>
+    <pre class="out" id="out" data-expert></pre>
   </section>
 
   <section class="projects reveal" id="bibliotheque" aria-labelledby="projTitle">
@@ -391,13 +404,13 @@
 <p class="toast" id="toast" role="status"></p>
 <img class="print-sheet" id="printSheet" alt="Planche de l'accord" data-i18n-attr="alt=h.sheet.alt">
 <div class="print-pages" id="printPages"></div>
-<script src="src/core.js?v=20261109b"></script>
-<script src="src/i18n.js?v=20261109b"></script>
-<script src="src/wada-data.js?v=20261109b"></script>
-<script src="src/sources-data.js?v=20261109b"></script>
-<script src="src/scenes.js?v=20261109b"></script>
-<script src="src/proposal.js?v=20261109b"></script>
-<script src="src/recolor.js?v=20261109b"></script>
-<script src="src/app.js?v=20261109b"></script>
+<script src="src/core.js?v=20261109d"></script>
+<script src="src/i18n.js?v=20261109d"></script>
+<script src="src/wada-data.js?v=20261109d"></script>
+<script src="src/sources-data.js?v=20261109d"></script>
+<script src="src/scenes.js?v=20261109d"></script>
+<script src="src/proposal.js?v=20261109d"></script>
+<script src="src/recolor.js?v=20261109d"></script>
+<script src="src/app.js?v=20261109d"></script>
 </body>
 </html>

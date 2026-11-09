@@ -308,3 +308,28 @@ test("fidélité : accord original, adapté ou règle", () => {
   const two = C.build(search("#c4663f", 0, "#1e7b45")[0], "#c4663f", { substitute: true, seed2: "#1e7b45" });
   assert.ok(two.match2);
 });
+
+test("proportions réglables : somme 100, minimum 5 %, gardées dans le lien", () => {
+  for (const [p, i, v] of [[[60, 30, 10], 0, 80], [[60, 30, 10], 2, 40], [[50, 25, 15, 10], 1, 99], [[65, 35], 1, 2], [[50, 25, 15, 10], 3, 33]]) {
+    const out = C.setPart(p, i, v);
+    assert.equal(out.reduce((s, x) => s + x, 0), 100);
+    assert.ok(out.every((x) => x >= 5 && Number.isInteger(x)));
+  }
+  assert.deepEqual(C.setPart([60, 30, 10], 0, 80), [80, 15, 5]);
+  const h = C.hashOf(Object.assign(C.readHash("#c=c4663f&n=243"), { parts: [70, 15, 9, 6] }));
+  assert.equal(h, "#c=c4663f&n=243&p=70.15.9.6");
+  assert.deepEqual(C.readHash(h).parts, [70, 15, 9, 6]);
+  assert.equal(C.keyOf(h), C.keyOf("#c=c4663f&n=243"));
+  assert.equal(C.readHash("#c=c4663f&n=243&p=50.30.30").parts, null);
+  assert.equal(C.readHash("#c=c4663f&n=243&p=a.b").parts, null);
+  assert.deepEqual(C.partsOf(3, [70, 15, 9, 6]), [60, 30, 10]);
+  assert.deepEqual(C.partsOf(4, [70, 15, 9, 6]), [70, 15, 9, 6]);
+  assert.equal(C.cleanItems([{ hash: h, colors: ["#c4663f", "#ebd999", "#58771e", "#1b3644"] }])[0].hash, h);
+});
+
+test("justification des accords : mesures seulement", () => {
+  const w = C.whyOf(["#d94d99", "#ffffff"], ["#d94d99"]);
+  assert.equal(w.use, "large"); assert.equal(w.r, "3.8"); assert.equal(w.close, null); assert.equal(w.kept, 1);
+  const c = C.whyOf(["#c0c0c0", "#c4c4c4", "#000000"], ["#ff0000"]);
+  assert.deepEqual(c.close, ["#c0c0c0", "#c4c4c4"]); assert.equal(c.kept, 0); assert.equal(c.locked, 1);
+});

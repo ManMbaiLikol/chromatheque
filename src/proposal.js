@@ -161,6 +161,8 @@
       box.appendChild(el("article", { class: "slot" }, [
         el("div", { class: "slot-top" }, [el("span", { class: "piste-badge", "aria-hidden": "true", text: l }), el("div", { class: "slot-title" }, [el("b", { text: info.title }), el("small", { text: info.srcName + (info.fid ? " · " + info.fid : "") })]), rm]),
         el("div", { class: "sw" }, info.colors.map(function (c, j) { return el("i", { style: "background:" + c + ";flex:" + info.parts[j], title: c.toUpperCase() }); })),
+        // Même métier, même dessin, même cadrage pour les trois pistes : seules les couleurs changent.
+        el("img", { class: "slot-scene", alt: t("slot.scene", { x: l, j: t("job." + info.scene) }), src: A.svgSrc(A.SCENES.render(info.scene, info.colors, { aria: "", label: info.title, webTitle: t("scene.web.title") })) }),
         el("dl", { class: "slot-facts" }, [
           el("dt", { text: t("cmp.harmony") }), el("dd", { text: t("harm." + f.harmony) }),
           el("dt", { text: t("cmp.temp") }), el("dd", { text: t("temp." + f.temp) }),
@@ -169,6 +171,9 @@
         el("ul", { class: "impact compact" }, info.checks.map(function (c) { return el("li", { class: "chk " + c.lv }, [el("span", { class: "ico", "aria-hidden": "true", text: c.lv === "ok" ? "✓" : c.lv === "warn" ? "!" : "i" }), el("span", { text: c.text })]); })),
         open]));
     });
+    // Nombre de couleurs différent d'une piste à l'autre : proportions et rôles ne sont pas les mêmes, on le dit.
+    var sizes = PISTES.map(function (l) { var it = p.items.find(function (o) { return o.piste === l; }); return it ? it.colors.length : 0; }).filter(Boolean);
+    $("pistesDiff").textContent = sizes.some(function (n) { return n !== sizes[0]; }) ? t("slot.diff") : "";
   }
   // Les pistes suivent le métier choisi : leur lien (sc=) est mis à jour, le dossier montre la bonne mise en situation.
   function syncPisteScenes() {
@@ -217,7 +222,7 @@
     });
     var box = $("pitchPistes"); box.textContent = "";
     PISTES.forEach(function (l) {
-      var it = p.items.find(function (o) { return o.piste === l; }), parts = it ? C.PROPS[it.colors.length] : null;
+      var it = p.items.find(function (o) { return o.piste === l; }), parts = it ? C.partsOf(it.colors.length, (C.readHash(it.hash) || {}).parts) : null;
       box.appendChild(el("div", { class: "pitch-slot" + (it ? "" : " empty") }, [
         el("span", { class: "piste-badge", "aria-hidden": "true", text: l }),
         it ? el("span", { class: "sw" }, it.colors.map(function (c, j) { return el("i", { style: "background:" + c + ";flex:" + parts[j] }); })) : el("span", { class: "sw empty-sw" }),
@@ -312,7 +317,7 @@
     info.checks.forEach(function (l) { if (hy < S.h - S.m - 80) { x.fillStyle = l.lv === "warn" ? S.ink : S.muted; hy = A.wrapText(x, (l.lv === "ok" ? "✓ " : l.lv === "warn" ? "! " : "· ") + l.text, RX, hy + 6, RW, 20); } });
     return g.cv;
   }
-  function comparePage(S, p, infos) {
+  function comparePage(S, p, infos, scenes) {
     var g = page(S), x = g.x, F = A.FONT, M = S.m;
     x.fillStyle = S.ink; x.font = "800 46px " + F.display; x.fillText(t("dossier.compare"), M, M);
     var W = (S.w - 2 * M - 40 * (infos.length - 1)) / infos.length;
@@ -320,10 +325,12 @@
       var X = M + i * (W + 40), Y = 170, f = C.intentFacts(info.colors, info.scene);
       letter(x, info.piste, X, Y, 22);
       x.fillStyle = S.ink; x.font = "700 20px " + F.display; x.fillText(A.fitText(x, info.title, W - 60), X + 58, Y + 8);
-      band(x, info.colors, info.parts, X, Y + 64, W, 380, false);
+      band(x, info.colors, info.parts, X, Y + 64, W, 110, false);
+      var sh = Math.round(W * 340 / 480), img = scenes && scenes[i];
+      if (img) x.drawImage(img, X, Y + 194, W, sh); else { x.fillStyle = S.line; x.fillRect(X, Y + 194, W, sh); }
       var rows = [[t("cmp.source"), info.srcName + (info.fid ? " · " + info.fid : "")], [t("cmp.harmony"), t("harm." + f.harmony)], [t("cmp.temp"), t("temp." + f.temp)],
         [t("cmp.contrast"), t("cl." + f.contrast)], [t("cmp.checks"), t("cmp.checks.v", { ok: f.ok, w: f.warn.length })]];
-      var yy = Y + 476;
+      var yy = Y + 194 + sh + 34;
       rows.forEach(function (r) {
         x.fillStyle = S.muted; x.font = "700 13px " + F.body; x.fillText(r[0].toUpperCase(), X, yy);
         x.fillStyle = S.ink; x.font = "400 18px " + F.body; yy = A.wrapMax(x, r[1], X, yy + 20, W, 24, 2) + 14;
@@ -385,7 +392,7 @@
     });
     return Promise.all([fonts].concat(imgs)).then(function (res) {
       var pages = [coverPage(S, p, infos)].concat(infos.map(function (info, i) { return pistePage(S, p, info, res[i + 1]); }));
-      if (infos.length > 1) pages.push(comparePage(S, p, infos));
+      if (infos.length > 1) pages.push(comparePage(S, p, infos, res.slice(1)));
       pages.push(valuesPage(S, p, infos), approvalPage(S, p, infos));
       pages.forEach(function (cv, i) {
         var x = cv.getContext("2d"); x.setTransform(S.scale, 0, 0, S.scale, 0, 0); x.textBaseline = "top";

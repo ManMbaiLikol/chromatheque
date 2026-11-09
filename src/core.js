@@ -81,6 +81,26 @@
 
   /* ---------- règles Wada ---------- */
   var PROPS = { 2: [65, 35], 3: [60, 30, 10], 4: [50, 25, 15, 10] };
+  // Proportions réglables (convention MML) : entiers ≥ 1, somme 100, une par couleur ; sinon la proportion par défaut.
+  var PART_MIN = 5;
+  function cleanParts(a) {
+    if (!Array.isArray(a) || a.length < 2 || a.length > 4) return null;
+    var ok = a.every(function (x) { return x === Math.round(x) && x >= 1 && x <= 99; }) && a.reduce(function (s, x) { return s + x; }, 0) === 100;
+    return ok ? a.slice() : null;
+  }
+  function partsOf(n, parts) { return parts && parts.length === n && cleanParts(parts) ? parts.slice() : PROPS[n].slice(); }
+  // Régler la part i à v : les autres se partagent le reste au prorata de leurs valeurs, en entiers, somme 100.
+  function setPart(parts, i, v) {
+    var n = parts.length, lo = PART_MIN, hi = 100 - PART_MIN * (n - 1);
+    v = Math.max(lo, Math.min(hi, Math.round(+v || 0)));
+    var rest = 100 - v, others = parts.map(function (x, j) { return j === i ? 0 : Math.max(x, 0.0001); }), tot = others.reduce(function (s, x) { return s + x; }, 0);
+    var raw = others.map(function (x, j) { return j === i ? v : Math.max(lo, rest * x / tot); });
+    var out = raw.map(function (x, j) { return j === i ? v : Math.floor(x); }), diff = 100 - out.reduce(function (s, x) { return s + x; }, 0);
+    var order = out.map(function (_, j) { return j; }).filter(function (j) { return j !== i; }).sort(function (a, b) { return (raw[b] - Math.floor(raw[b])) - (raw[a] - Math.floor(raw[a])); });
+    for (var k = 0; diff !== 0 && k < 400; k++) { var j = order[k % order.length], step = diff > 0 ? 1 : -1; if (out[j] + step >= lo) { out[j] += step; diff -= step; } }
+    return out;
+  }
+  function sameParts(a, b) { return !!a && !!b && a.join() === b.join(); }
   var ROLES = {
     fr: { 2: ["Dominante", "Contraste"], 3: ["Dominante", "Secondaire", "Accent"], 4: ["Dominante", "Secondaire", "Complément", "Accent"] },
     en: { 2: ["Dominant", "Contrast"], 3: ["Dominant", "Secondary", "Accent"], 4: ["Dominant", "Secondary", "Complement", "Accent"] }
@@ -351,6 +371,13 @@
     mix: function (cs) { return { lv: "info", v: { a: opticalMix(cs) } }; },
     count: function (cs) { return { lv: "info", v: { n: cs.length } }; }
   };
+  // Pourquoi cet accord : mesures vérifiables (contraste maximal, couleurs trop proches, couleurs imposées gardées), sans note d'harmonie.
+  function whyOf(cs, locked) {
+    var best = 0, close = null, minD = Infinity;
+    pairs(cs).forEach(function (p) { var r = contrast(p[0], p[1]), d = dist(lab(p[0]), lab(p[1])); if (r > best) best = r; if (d < minD) { minD = d; close = p; } });
+    var low = cs.map(function (c) { return c.toLowerCase(); }), lk = (locked || []).map(function (c) { return c.toLowerCase(); });
+    return { r: ratioText(best), use: textUse(best), close: minD < 0.08 ? close : null, locked: lk.length, kept: lk.filter(function (c) { return low.indexOf(c) >= 0; }).length };
+  }
   function jobChecks(job, cs) {
     var j = JOBS[job] || JOBS.interieur;
     return j.c.map(function (k) { var r = CHECKS[k](cs); return { k: k, lv: r.lv, v: r.v }; });
@@ -429,7 +456,7 @@
     String(h || "").replace(/^#/, "").split("&").forEach(function (kv) { var i = kv.indexOf("="); if (i > 0) { try { q[kv.slice(0, i)] = decodeURIComponent(kv.slice(i + 1)); } catch (e) {} } });
     var c = q.c ? parseHex(q.c) : null; if (!c) return null;
     return { seed: c, seed2: q.c2 ? parseHex(q.c2) : null, n: Math.max(0, Math.min(999, parseInt(q.n, 10) || 0)),
-      order: q.o ? q.o.split(".").map(Number) : null, size: [2, 3, 4].indexOf(+q.t) >= 0 ? +q.t : 0,
+      order: q.o ? q.o.split(".").map(Number) : null, parts: q.p ? cleanParts(q.p.split(".").map(Number)) : null, size: [2, 3, 4].indexOf(+q.t) >= 0 ? +q.t : 0,
       substitute: q.ex !== "0", transpose: q.tr === "1", scene: SCENES.indexOf(q.sc) >= 0 ? q.sc : "interieur",
       source: SOURCES.indexOf(q.s) > 0 ? q.s : "wada",
       locked: q.c2 && parseHex(q.c2) ? 2 : q.k === "1" ? 1 : 0,
@@ -441,6 +468,7 @@
     else if (k.locked === 1) p.push("k=1");
     if (k.n) p.push("n=" + k.n);
     if (k.n && k.order) p.push("o=" + k.order.join("."));
+    if (k.n && k.parts && cleanParts(k.parts)) p.push("p=" + k.parts.join("."));
     if (k.size) p.push("t=" + k.size);
     if (!k.substitute) p.push("ex=0");
     if (k.transpose) p.push("tr=1");
@@ -476,10 +504,10 @@
     rgb: rgb, toHex: toHex, lin: lin, delin: delin, labFromRgb: labFromRgb, lab: lab, linFromLab: linFromLab, lch: lch, fromLch: fromLch,
     dist: dist, lum: lum, contrast: contrast, ratioText: ratioText, textUse: textUse, readableOn: readableOn, towards: towards, shade: shade, parseHex: parseHex,
     nameOf: nameOf, hslOf: hslOf, cmykOf: cmykOf, lrvOf: lrvOf, values: values,
-    PROPS: PROPS, rolesOf: rolesOf, slugsOf: slugsOf, fid: fid, createSearch: createSearch, build: build, kindOf: kindOf,
+    PROPS: PROPS, cleanParts: cleanParts, partsOf: partsOf, setPart: setPart, sameParts: sameParts, rolesOf: rolesOf, slugsOf: slugsOf, fid: fid, createSearch: createSearch, build: build, kindOf: kindOf,
     simulate: simulate, confusions: confusions, CVD_TYPES: Object.keys(CVD),
     aseBytes: aseBytes, metaOf: metaOf, tokensText: tokensText, tailwindText: tailwindText, gplText: gplText,
-    RULES: RULES, ruleCombos: ruleCombos, RULES2: RULES2, ruleCombos2: ruleCombos2, JOBS: JOBS, JOB_IDS: JOB_IDS, FAMILIES: FAMILIES, jobChecks: jobChecks,
+    whyOf: whyOf, RULES: RULES, ruleCombos: ruleCombos, RULES2: RULES2, ruleCombos2: ruleCombos2, JOBS: JOBS, JOB_IDS: JOB_IDS, FAMILIES: FAMILIES, jobChecks: jobChecks,
     SCALE_STEPS: SCALE_STEPS, scaleOf: scaleOf, scaleText: scaleText, recolorLab: recolorLab, intentFacts: intentFacts,
     cleanProposal: cleanProposal, cleanResponse: cleanResponse, packLink: packLink, unpackLink: unpackLink,
     harmonyOf: harmonyOf, tempOf: tempOf, opticalMix: opticalMix, cmykRisk: cmykRisk, videoUnsafe: videoUnsafe,

@@ -70,7 +70,7 @@
   function takeLink(k) {
     state.draft = k.seed; state.locked = k.locked === 2 ? [k.seed, k.seed2] : k.locked === 1 ? [k.seed] : []; sync();
     state.size = k.size; state.substitute = k.substitute; state.transpose = k.transpose; state.scene = k.scene; state.source = k.source || "wada";
-    state.wantN = k.n; state.wantOrder = k.order;
+    state.wantN = k.n; state.wantOrder = k.order; state.wantParts = k.parts;
     if (k.lang) lang = k.lang;
   }
   var link = readHash(location.hash);
@@ -78,7 +78,7 @@
   if (link) takeLink(link);
   function shareHash() {
     var cur = current();
-    return hashOf({ seed: state.seed, seed2: state.multi ? state.seed2 : null, locked: state.locked.length, n: cur ? cur.a.n : 0, order: state.order, size: state.size, substitute: state.substitute, transpose: state.transpose, scene: state.scene, source: state.source, lang: lang });
+    return hashOf({ seed: state.seed, seed2: state.multi ? state.seed2 : null, locked: state.locked.length, n: cur ? cur.a.n : 0, order: state.order, parts: state.parts, size: state.size, substitute: state.substitute, transpose: state.transpose, scene: state.scene, source: state.source, lang: lang });
   }
   function shareUrl() { return location.href.split("#")[0] + shareHash(); }
   // Sections : la destination (go=) est séparée des réglages ; un lien « #metier » garde la palette mémorisée.
@@ -148,10 +148,10 @@
     if (!keepImageChip) document.querySelectorAll(".chip.on").forEach(function (c) { c.classList.remove("on"); });
     renderLocks();
     if (state.locked.length) { save(); return; }
-    sync(); state.sel = 0; state.order = null; applyAccent(); save(); refresh();
+    sync(); state.sel = 0; state.order = null; state.parts = null; applyAccent(); save(); refresh();
   }
   function relock(msg) {
-    state.sel = 0; state.order = null; state.wantN = 0;
+    state.sel = 0; state.order = null; state.parts = null; state.wantN = 0;
     if (twoLocked() && state.size === 2) { state.size = 0; setPressed("sizeSeg", 0); }
     sync(); applyAccent(); save(); renderLocks(); renderSources(); applySourceUI(); refresh(); if (msg) toast(msg);
   }
@@ -218,7 +218,7 @@
   }
   function setSource(id) {
     if (!SRC[id] || id === state.source) return;
-    state.source = id; state.sel = 0; state.order = null; state.wantN = 0;
+    state.source = id; state.sel = 0; state.order = null; state.parts = null; state.wantN = 0;
     applySourceUI(); save(); refresh(); renderDict();
     toast(t("src.pick", { s: srcName(id) }));
   }
@@ -259,8 +259,9 @@
       if (j >= 0) {
         state.sel = j; var o = state.wantOrder, len = state.list[j].colors.length;
         state.order = o && o.length === len && o.slice().sort().join() === Object.keys(o).join() ? o : null;
+        state.parts = state.wantParts && state.wantParts.length === len ? state.wantParts : null;
       }
-      state.wantN = 0; state.wantOrder = null;
+      state.wantN = 0; state.wantOrder = null; state.wantParts = null;
     }
     var hint;
     if (state.source === "regles") hint = t(res.two ? "res.rules2" : "res.rules", { n: all.length });
@@ -276,14 +277,15 @@
       var sw = el("span", { class: "sw" }, a.colors.map(function (c, j) { return el("i", { style: "background:" + c + ";flex:" + parts[j] }); }));
       var e = entryOf(src, a.n), sub = src === "kasane" && e ? e[lang] || e.fr : src === "afrique" && e ? e.g[lang] : "";
       var b = el("button", { type: "button", class: "card" + (src === "kasane" ? " jp" : ""), "aria-pressed": String(i === state.sel),
-        "aria-label": src === "wada" ? t("card.aria", { n: a.n, fid: f }) : t("card.aria.src", { name: longLabel(src, a.n), fid: f }) }, [
+        "aria-label": (src === "wada" ? t("card.aria", { n: a.n, fid: f }) : t("card.aria.src", { name: longLabel(src, a.n), fid: f })) + ". " + whyText(a.colors) }, [
         sw,
         el("span", { class: "meta" }, [el("span", { class: "num", text: shortLabel(src, a.n) }), el("span", { class: "tag " + (a.rule ? "rule" : a.fid), text: f })]),
         sub ? el("span", { class: "sub", text: sub }) : null,
         el("span", { class: "hexes", text: a.colors.join("  ").toUpperCase() }),
+        el("span", { class: "why", text: whyText(a.colors) }),
         el("span", { class: "card-foot" }, [el("span", { class: "score", text: a.rule ? t("tag.rule") : t("card.gap", { d: (a.d * 100).toFixed(1) }) }), el("span", { class: "arrow", "aria-hidden": "true", text: "→" })])
       ].filter(Boolean));
-      b.addEventListener("click", function () { state.sel = i; state.order = null; refreshCards(); renderDetail(); });
+      b.addEventListener("click", function () { state.sel = i; state.order = null; state.parts = null; refreshCards(); renderDetail(); });
       var li = el("li", { class: "card-li" }, [b]);
       hook("card", a, li);
       ul.appendChild(li);
@@ -355,15 +357,41 @@
     tail.push(t("fid.method"));
     box.appendChild(el("span", { class: "fid-method", text: tail.join(" ") }));
   }
+  // Proportions réglables : un curseur par couleur, les autres s'ajustent (somme 100). Gardées dans le lien (p=) et le projet.
+  function partsNow(n) { return C.partsOf(n, state.parts); }
+  // Justification courte d'un accord suggéré : uniquement des mesures (voir C.whyOf).
+  function whyText(cs) {
+    var w = C.whyOf(cs, state.locked), bits = [t("why.contrast." + w.use, { r: w.r }), w.close ? t("why.close", { a: nameOf(w.close[0]), b: nameOf(w.close[1]) }) : t("why.distinct")];
+    if (w.locked) bits.push(t(w.kept === w.locked ? "why.kept" : "why.notkept", { n: w.locked }));
+    return bits.join(" · ");
+  }
+  function renderParts(cs, parts, roles) {
+    var box = $("parts"), sig = cs.join() + "|" + lang;
+    $("partsReset").disabled = !state.parts;
+    if (box.dataset.sig === sig) { [].forEach.call(box.querySelectorAll("input"), function (inp, i) { inp.value = parts[i]; inp.nextSibling.textContent = parts[i] + " %"; }); return; }
+    box.dataset.sig = sig; box.textContent = "";
+    cs.forEach(function (c, i) {
+      var id = "part" + i, inp = el("input", { type: "range", id: id, min: "5", max: String(100 - 5 * (cs.length - 1)), step: "1", value: String(parts[i]) });
+      inp.addEventListener("input", function () {
+        var p = C.setPart(partsNow(cs.length), i, +inp.value);
+        state.parts = C.sameParts(p, C.PROPS[cs.length]) ? null : p;
+        var k = inProject(); renderDetail(); if (k >= 0) { var it = project().items[k]; it.hash = snapshot().hash; persist(); }
+      });
+      box.appendChild(el("div", { class: "part" }, [
+        el("label", { for: id }, [el("i", { class: "vdot", style: "background:" + c, "aria-hidden": "true" }), document.createTextNode(roles[i])]),
+        inp, el("output", { for: id, text: parts[i] + " %" })]));
+    });
+  }
   function renderDetail() {
     var cur = current(); if (!cur) return;
-    var a = cur.a, cs = cur.colors, parts = PROPS[cs.length], src = state.source, f = t("fid." + a.fid);
+    var a = cur.a, cs = cur.colors, parts = partsNow(cs.length), src = state.source, f = t("fid." + a.fid);
     $("detailLabel").textContent = src === "wada" ? t("detail.label", { n: a.n, fid: f }) + gapText(a)
       : a.rule ? t("detail.rule", { s: srcName(src) }) : t("detail.src", { s: srcName(src), fid: f }) + gapText(a);
     $("detailTitle").textContent = src === "wada" ? cs.map(nameOf).join(" · ") : longLabel(src, a.n);
     var e = entryOf(src, a.n);
     $("detailSource").textContent = src === "wada" ? "" : (e ? e.g[lang] + " · " : "") + cs.map(nameOf).join(" · ");
     renderFid(a, src);
+    renderParts(cs, parts, rolesFor(src, cs.length));
     var big = $("bigsw"); big.textContent = "";
     cs.forEach(function (c, i) { var s = sim(c), r = readableOn(s); big.appendChild(el("div", { style: "background:" + s + ";color:" + r.c + ";flex:" + parts[i] }, [document.createTextNode(parts[i] + " %")])); });
     var roles = rolesFor(src, cs.length);
@@ -464,7 +492,7 @@
     return { key: src + "-" + n, title: srcName(src) + " · " + longLabel(src, n), prefix: src, note: t("exp.note.src") };
   }
   function exportText(kind) {
-    var cur = current(), cs = cur.colors, parts = PROPS[cs.length], n = cur.a.n, src = state.source;
+    var cur = current(), cs = cur.colors, parts = partsNow(cs.length), n = cur.a.n, src = state.source;
     if (kind === "hex") return cs.map(function (c) { return c.toUpperCase(); }).join(", ");
     if (kind === "prompt") return src === "wada" ? t("exp.prompt", { k: cs.length, list: cs.join(", "), n: n, p: parts.join("/") }) : t("exp.prompt.src", { k: cs.length, list: cs.join(", "), s: srcName(src), name: longLabel(src, n), p: parts.join("/") });
     if (kind === "link") return shareUrl();
@@ -489,11 +517,14 @@
       doCopy(txt, k === "link" ? t(location.protocol === "file:" ? "toast.link.file" : "toast.link") : t("toast." + k));
     });
   });
+  $("partsReset").addEventListener("click", function () { state.parts = null; var k = inProject(); renderDetail(); if (k >= 0) { project().items[k].hash = snapshot().hash; persist(); } });
   $("rotate").addEventListener("click", function () { var cur = current(); if (!cur) return; var o = cur.order.slice(); o.push(o.shift()); state.order = o; toast(t("dominant", { x: nameOf(cur.a.colors[o[0]]) })); renderDetail(); });
 
   /* ---------- planche client : A4 paysage, 300 dpi (dessinée en unités de 1754 × 1240, puis ×2) ---------- */
   var SHEET = { w: 1754, h: 1240, scale: 2, m: 72, bg: "#f4f4f2", ink: "#1b1b19", muted: "#5d5d58", line: "#d9d9d5" };
   var FONT = { display: '"Bricolage Grotesque", "Shippori Mincho", "Segoe UI", sans-serif', body: '"Plus Jakarta Sans", "Segoe UI", sans-serif', mono: '"IBM Plex Mono", Consolas, monospace' };
+  // Mise en situation en <img> (data URL) : aucune insertion de HTML, même avec des couleurs venues d'un projet.
+  function svgSrc(svg) { return "data:image/svg+xml;charset=utf-8," + encodeURIComponent(svg.replace("<svg ", '<svg xmlns="http://www.w3.org/2000/svg" ')); }
   function svgImage(svg) {
     return new Promise(function (ok, ko) {
       var img = new Image(); img.onload = function () { ok(img); }; img.onerror = ko;
@@ -522,7 +553,7 @@
     return (a.rule ? t("sheet.head.rule", { s: srcName(src), name: longLabel(src, a.n) }) : t("sheet.head.src", { s: srcName(src), name: longLabel(src, a.n), fid: f })) + tr;
   }
   function makeSheet() {
-    var cur = current(), cs = cur.colors, a = cur.a, parts = PROPS[cs.length], roles = rolesFor(state.source, cs.length), S = SHEET;
+    var cur = current(), cs = cur.colors, a = cur.a, parts = partsNow(cs.length), roles = rolesFor(state.source, cs.length), S = SHEET;
     var wanted = ["700 40px " + FONT.display, "400 16px " + FONT.body, "700 16px " + FONT.body, "400 14px " + FONT.mono];
     var fontsReady = document.fonts ? Promise.all(wanted.map(function (f) { return document.fonts.load(f).catch(function () {}); })) : Promise.resolve();
     return Promise.all([fontsReady, svgImage(sceneSvg(cs, a.n)).catch(function () { return null; })]).then(function (res) {
@@ -626,7 +657,7 @@
       });
     });
   }
-  seg("sizeSeg", "size", function () { state.sel = 0; state.order = null; refresh(); });
+  seg("sizeSeg", "size", function () { state.sel = 0; state.order = null; state.parts = null; refresh(); });
   seg("lightSeg", "light", renderDetail);
   seg("visionSeg", "vision", renderDetail);
   seg("dictSeg", "dictSize", renderDict);
@@ -634,7 +665,7 @@
     b.addEventListener("click", function () {
       if (b.dataset.v === lang) return;
       lang = b.dataset.v; try { localStorage.setItem(LANG_KEY, lang); } catch (e) {}
-      var cur = current(); if (cur) { state.wantN = cur.a.n; state.wantOrder = state.order; }  // garder l'accord affiché
+      var cur = current(); if (cur) { state.wantN = cur.a.n; state.wantOrder = state.order; state.wantParts = state.parts; }  // garder l'accord affiché
       toast(""); applyLang();
     });
   });
@@ -727,7 +758,7 @@
     document.body.appendChild(l); l.click(); l.remove(); setTimeout(function () { URL.revokeObjectURL(u); }, 4000);
   }
   function exportItems() {
-    var cs = current().colors, roles = rolesFor(state.source, cs.length), slugs = slugsOf(cs.length), parts = PROPS[cs.length];
+    var cs = current().colors, roles = rolesFor(state.source, cs.length), slugs = slugsOf(cs.length), parts = partsNow(cs.length);
     return cs.map(function (c, i) { return { hex: c.toLowerCase(), role: roles[i], slug: slugs[i], pct: parts[i], name: nameOf(c) }; });
   }
   document.querySelectorAll("[data-export]").forEach(function (b) {
@@ -761,6 +792,19 @@
   function updateFav() { var on = String(inProject() >= 0); $("fav").setAttribute("aria-pressed", on); $("dockFav").setAttribute("aria-pressed", on); }
   $("dockFav").addEventListener("click", function () { $("fav").click(); });
   // Fond neutre : préférence d'affichage mémorisée (pas dans le lien).
+  // Mode Simple / Expert : n'affiche que l'essentiel ; ne touche ni au projet, ni aux couleurs, ni au lien (CSS seulement).
+  var MODE_KEY = "accords-wada-mode";
+  function setMode(m, say) {
+    document.documentElement.classList.toggle("simple", m === "simple"); setPressed("modeSeg", m);
+    try { localStorage.setItem(MODE_KEY, m); } catch (e) {}
+    if (say) toast(t("mode." + m));
+  }
+  (function () {
+    var m = null; try { m = localStorage.getItem(MODE_KEY); } catch (e) {}
+    if (m !== "simple" && m !== "expert") m = saved || store.projects.some(function (p) { return p.items.length; }) ? "expert" : "simple";  // nouveau visiteur : Simple
+    setMode(m);
+  })();
+  $("modeSeg").querySelectorAll("button").forEach(function (b) { b.addEventListener("click", function () { setMode(b.dataset.v, true); }); });
   var CALM_KEY = "accords-wada-calme";
   function setCalm(on) { document.documentElement.classList.toggle("calm", on); $("dockCalm").setAttribute("aria-pressed", String(on)); try { localStorage.setItem(CALM_KEY, on ? "1" : "0"); } catch (e) {} }
   try { if (localStorage.getItem(CALM_KEY) === "1") setCalm(true); } catch (e) {}
@@ -789,7 +833,7 @@
   }
   function itemLabel(it) { var k = readHash(it.hash), src = k ? k.source : "wada"; return src === "wada" ? num(it.n) : srcName(src) + " · " + shortLabel(src, it.n, !!(k && k.seed2)); }
   function accordItem(it, opts) {
-    var parts = PROPS[it.colors.length] || [], label = itemLabel(it);
+    var ik = readHash(it.hash), parts = C.partsOf(it.colors.length, ik && ik.parts), label = itemLabel(it);
     var open = el("button", { type: "button", class: "saved-open", "aria-label": t("proj.open", { n: label, list: it.colors.join(", ") }) }, [
       el("span", { class: "sw" }, it.colors.map(function (c, j) { return el("i", { style: "background:" + c + ";flex:" + (parts[j] || 1) }); })),
       el("span", { class: "num", text: label })]);
@@ -906,12 +950,12 @@
     else { var r = k.seed ? SRC[src].search(k.seed, 0, k.seed2 || null).find(function (x) { return x.n === it.n; }) : null; if (r) fid = t("fid." + C.fid(r.d)); }
     var e = entryOf(src, it.n);
     return { hash: it.hash, n: it.n, src: src, two: two, colors: cs, scene: scene, seed: k.seed, srcName: srcName(src), fid: fid,
-      title: src === "wada" ? "Sanzo Wada " + num(it.n) : longLabel(src, it.n, two), group: e ? e.g[lang] : "", roles: rolesFor(src, cs.length), parts: PROPS[cs.length],
+      title: src === "wada" ? "Sanzo Wada " + num(it.n) : longLabel(src, it.n, two), group: e ? e.g[lang] : "", roles: rolesFor(src, cs.length), parts: C.partsOf(cs.length, k.parts),
       checks: C.jobChecks(scene, cs).map(function (c) { return { lv: c.lv, text: checkText(c) }; }), piste: it.piste || "", intent: it.intent || "" };
   }
   window.ChromaApp = {
     C: C, t: t, lang: function () { return lang; }, nameOf: nameOf, num: num, el: el, $: $, toast: toast, download: download, doCopy: doCopy,
-    svgImage: svgImage, wrapText: wrapText, wrapMax: wrapMax, fitText: fitText, SHEET: SHEET, FONT: FONT, SCENES: SCENES,
+    svgImage: svgImage, svgSrc: svgSrc, wrapText: wrapText, wrapMax: wrapMax, fitText: fitText, SHEET: SHEET, FONT: FONT, SCENES: SCENES,
     state: state, current: current, shareHash: shareHash, sim: sim, checkText: checkText, itemInfo: itemInfo,
     project: project, itemLabel: itemLabel, store: function () { return store; }, persist: persist, renderProjects: renderProjects, newId: newId, slug: slug,
     // Garder un accord des suggestions (sans l'ouvrir) : même lien que s'il était affiché, ordre par défaut.
