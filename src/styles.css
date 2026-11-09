@@ -547,3 +547,7 @@ html.simple [data-expert], html.simple .fid-method, html.simple .fid-line small 
 .tool.mode { cursor: default; padding: 6px 8px 6px 14px }
 .tool.mode .seg button { padding: 6px 12px }
 @media (max-width: 640px) { .toolbar { grid-template-columns: 1fr } }
+/* Source choisie en chemin, au-dessus des accords suggérés */
+.src-pick { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; margin: 4px 0 10px }
+.src-pick .seg button { padding: 6px 12px }
+.src-more { font-size: 13px; font-weight: 600 }

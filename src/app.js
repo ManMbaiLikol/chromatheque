@@ -211,10 +211,17 @@
         el("span", { class: "source-desc", text: t("src." + id + ".desc") }),
         el("span", { class: "card-foot" }, [el("span", { class: "score", text: t("src.pick", { s: "" }).trim() }), el("span", { class: "arrow", "aria-hidden": "true", text: "→" })])
       ]);
-      b.addEventListener("click", function () { setSource(id); });
+      b.addEventListener("click", function () { var was = state.source; setSource(id); if (was !== id) goSection("suggestions"); });
       box.appendChild(b);
     });
     $("sourceNote").innerHTML = t("src.soon");
+    // Sélecteur compact au-dessus des accords : la source se choisit en chemin, sans décision préalable.
+    var seg = $("srcSeg"); seg.textContent = "";
+    C.SOURCES.forEach(function (id) {
+      var b = el("button", { type: "button", "data-v": id, "aria-pressed": String(state.source === id), text: t("src." + id + ".short") });
+      b.addEventListener("click", function () { setSource(id); });
+      seg.appendChild(b);
+    });
   }
   function setSource(id) {
     if (!SRC[id] || id === state.source) return;
@@ -223,7 +230,7 @@
     toast(t("src.pick", { s: srcName(id) }));
   }
   function applySourceUI() {
-    setPressed("sourceList", state.source);
+    setPressed("sourceList", state.source); setPressed("srcSeg", state.source);
     $("dictOpts").hidden = state.source === "regles";
     $("resultsKicker").textContent = t("res.kicker", { s: srcName(state.source) });
   }

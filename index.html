@@ -13,7 +13,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,400..800&amp;family=Fraunces:ital,opsz,wght@0,9..144,400..700;1,9..144,400..600&amp;family=Plus+Jakarta+Sans:wght@400;500;600;700&amp;family=IBM+Plex+Mono:wght@400;500&amp;family=Shippori+Mincho:wght@600&amp;display=swap">
-<link rel="stylesheet" href="src/styles.css?v=20261109d">
+<link rel="stylesheet" href="src/styles.css?v=20261109e">
 </head>
 <body>
 <a class="skip" href="#couleur" data-i18n="h.skip">Aller à l'outil</a>
@@ -22,12 +22,12 @@
   <div class="site-in">
     <a class="brand" href="#top"><span class="brand-mark" id="brandMark" aria-hidden="true"><i></i><i></i><i></i></span><span class="brand-name"><span>La Chromathèque</span><small>de Man Mbaï Likol</small></span></a>
     <nav class="nav" aria-label="Sections" data-i18n-attr="aria-label=h.nav">
-      <a href="#sources" data-i18n="h.nav.sources">Sources</a>
       <a href="#couleur" data-i18n="h.nav.color">Couleur</a>
       <a href="#accord" data-i18n="h.nav.accord">Accord</a>
       <a href="#metier" data-i18n="h.nav.job">Métier</a>
       <a href="#livrer" data-i18n="h.nav.deliver">Livrer</a>
       <a href="#bibliotheque" data-i18n="h.nav.library">Bibliothèque</a>
+      <a href="#sources" data-i18n="h.nav.sources">Sources</a>
     </nav>
     <div class="site-tools">
       <div class="seg small" role="group" aria-label="Langue" data-i18n-attr="aria-label=h.lang" id="langSeg">
@@ -44,7 +44,7 @@
   <section class="present" id="present" hidden aria-labelledby="presentTitle"></section>
   <nav class="toolbar" aria-label="Réglages en cours" data-i18n-attr="aria-label=h.toolbar">
     <a class="tool" href="#couleur"><span class="tool-sw" id="tbSeed" aria-hidden="true"></span><span class="tool-k" data-i18n="h.nav.color">Couleur</span><b id="tbSeedV"></b></a>
-    <a class="tool" href="#sources"><span class="tool-k" data-i18n="h.tb.source">Source</span><b id="tbSrc"></b><span class="chev" aria-hidden="true">⌄</span></a>
+    <a class="tool" href="#suggestions"><span class="tool-k" data-i18n="h.tb.source">Source</span><b id="tbSrc"></b><span class="chev" aria-hidden="true">⌄</span></a>
     <a class="tool" href="#metier"><span class="tool-k" data-i18n="h.nav.job">Métier</span><b id="tbJob"></b><span class="chev" aria-hidden="true">⌄</span></a>
     <div class="tool mode" title="Simple : l'essentiel. Expert : transposition, simulations, valeurs techniques, gammes et exports logiciels." data-i18n-attr="title=h.mode.t">
       <span class="tool-k" id="modeLabel" data-i18n="h.mode">Mode</span>
@@ -74,22 +74,10 @@
     </aside>
   </section>
 
-  <section class="band reveal" id="sources" aria-labelledby="srcTitle">
-    <div class="step-head">
-      <span class="step" aria-hidden="true">01</span>
-      <div>
-        <p class="label" data-i18n="h.src.kicker">D'où viennent les accords</p>
-        <h2 id="srcTitle" data-i18n="h.src.title">Choisis ta source</h2>
-      </div>
-    </div>
-    <div class="sources" id="sourceList" role="group" aria-labelledby="srcTitle"></div>
-    <p class="note" id="sourceNote"></p>
-  </section>
-
   <section class="main reveal" id="couleur">
     <form class="panel" id="panel" onsubmit="return false">
       <div class="step-head">
-        <span class="step" aria-hidden="true">02</span>
+        <span class="step" aria-hidden="true">01</span>
         <div><p class="label" data-i18n="h.color.kicker">Ton point de départ</p><h2 data-i18n="h.color.title">Ta couleur</h2></div>
       </div>
       <div class="seed">
@@ -137,10 +125,15 @@
       </div>
     </form>
 
-    <div class="results">
+    <div class="results" id="suggestions">
       <div class="step-head">
-        <span class="step" aria-hidden="true">03</span>
+        <span class="step" aria-hidden="true">02</span>
         <div><p class="label" id="resultsKicker"></p><h2 data-i18n="h.suggested">Accords suggérés</h2></div>
+      </div>
+      <div class="src-pick">
+        <span class="label" id="srcPickLabel" data-i18n="h.srcpick">Puiser dans</span>
+        <div class="seg" role="group" aria-labelledby="srcPickLabel" id="srcSeg"></div>
+        <a class="src-more" href="#sources" data-i18n="h.srcpick.more">Découvrir les sources →</a>
       </div>
       <p class="hint" id="resultHint"></p>
       <ul class="cards" id="cards"></ul>
@@ -163,7 +156,7 @@
   <section class="detail reveal" id="accord" aria-live="polite">
     <div class="detail-info">
       <div class="step-head">
-        <span class="step" aria-hidden="true">04</span>
+        <span class="step" aria-hidden="true">03</span>
         <div><p class="label" id="detailLabel"></p><h2 id="detailTitle"></h2></div>
       </div>
       <p class="hint" id="detailSource"></p>
@@ -192,7 +185,7 @@
 
     <div class="jobcol" id="metier">
       <div class="step-head">
-        <span class="step" aria-hidden="true">05</span>
+        <span class="step" aria-hidden="true">04</span>
         <div><p class="label" data-i18n="h.job.kicker">L'effet dans ton métier</p><h2 data-i18n="h.job.title">Ton métier</h2></div>
       </div>
       <div class="jobs" id="jobList"></div>
@@ -258,7 +251,7 @@
 
   <section class="deliver reveal" id="livrer" aria-labelledby="deliverTitle">
     <div class="step-head">
-      <span class="step" aria-hidden="true">06</span>
+      <span class="step" aria-hidden="true">05</span>
       <div><p class="label" data-i18n="h.deliver.kicker">Pour ton client et tes logiciels</p><h2 id="deliverTitle" data-i18n="h.deliver.title">Livrer</h2></div>
     </div>
     <div class="deliver-grid two">
@@ -334,7 +327,7 @@
   <section class="projects reveal" id="bibliotheque" aria-labelledby="projTitle">
     <div class="dict-head">
       <div class="step-head">
-        <span class="step" aria-hidden="true">07</span>
+        <span class="step" aria-hidden="true">06</span>
         <div><p class="label" data-i18n="h.library">Ta bibliothèque</p><h2 id="projTitle" data-i18n="h.projects">Projets et favoris</h2></div>
       </div>
       <div class="proj-tools">
@@ -366,6 +359,19 @@
       <summary><span data-i18n="h.history">Historique récent</span> (<span id="historyCount">0</span>)</summary>
       <ul class="saved" id="history"></ul>
     </details>
+  </section>
+
+  <section class="band reveal" id="sources" aria-labelledby="srcTitle">
+    <div class="step-head">
+      <span class="step" aria-hidden="true">07</span>
+      <div>
+        <p class="label" data-i18n="h.src.kicker">Explorer les collections</p>
+        <h2 id="srcTitle" data-i18n="h.src.title">D'où viennent les accords</h2>
+      </div>
+    </div>
+    <div class="sources" id="sourceList" role="group" aria-labelledby="srcTitle"></div>
+    <p class="hint" data-i18n="h.src.hint">Sanzo Wada est la source par défaut. Chaque autre source est une interprétation MML, signalée comme telle sur la planche et dans les exports.</p>
+    <p class="note" id="sourceNote"></p>
   </section>
 
   <section class="dict reveal" id="dictionnaire">
@@ -404,13 +410,13 @@
 <p class="toast" id="toast" role="status"></p>
 <img class="print-sheet" id="printSheet" alt="Planche de l'accord" data-i18n-attr="alt=h.sheet.alt">
 <div class="print-pages" id="printPages"></div>
-<script src="src/core.js?v=20261109d"></script>
-<script src="src/i18n.js?v=20261109d"></script>
-<script src="src/wada-data.js?v=20261109d"></script>
-<script src="src/sources-data.js?v=20261109d"></script>
-<script src="src/scenes.js?v=20261109d"></script>
-<script src="src/proposal.js?v=20261109d"></script>
-<script src="src/recolor.js?v=20261109d"></script>
-<script src="src/app.js?v=20261109d"></script>
+<script src="src/core.js?v=20261109e"></script>
+<script src="src/i18n.js?v=20261109e"></script>
+<script src="src/wada-data.js?v=20261109e"></script>
+<script src="src/sources-data.js?v=20261109e"></script>
+<script src="src/scenes.js?v=20261109e"></script>
+<script src="src/proposal.js?v=20261109e"></script>
+<script src="src/recolor.js?v=20261109e"></script>
+<script src="src/app.js?v=20261109e"></script>
 </body>
 </html>
