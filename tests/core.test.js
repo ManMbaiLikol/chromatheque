@@ -268,3 +268,43 @@ test("import : piste, statut et note d'intention conservés et bornés", () => {
   assert.equal(it.piste, "B"); assert.equal(it.status, "valide"); assert.equal(it.intent.length, 1500);
   assert.equal(C.cleanItems([{ hash: "#c=d94d99&n=55", colors: ["#d94d99", "#ffffff"], piste: "X", status: "??" }])[0].piste, "");
 });
+
+test("contraste : seuils WCAG sur la valeur non arrondie, ratio affiché tronqué", () => {
+  assert.equal(C.ratioText(4.46), "4.4"); assert.equal(C.ratioText(4.5), "4.5"); assert.equal(C.ratioText(2.99), "2.9");
+  assert.equal(C.textUse(4.49), "large"); assert.equal(C.textUse(4.5), "body"); assert.equal(C.textUse(2.99), "none"); assert.equal(C.textUse(1.6), "none");
+  // 1,6:1 n'est jamais présenté comme bon pour un titre ; la correction proposée atteint 4,5:1.
+  const low = C.jobChecks("graphisme", ["#c0c0c0", "#d0d0d0"])[0];
+  assert.equal(low.lv, "warn"); assert.equal(low.v.use, "none");
+  assert.ok(C.contrast(low.v.fix, low.v.b) >= 4.5);
+  if (low.v.adj) assert.ok(C.contrast(low.v.adj, low.v.b) >= 4.5);
+  const mid = C.jobChecks("graphisme", ["#d94d99", "#ffffff"])[0];
+  assert.equal(mid.v.use, "large");
+});
+
+test("liens : la section visée est séparée des réglages de l'accord", () => {
+  const ids = ["metier", "couleur", "accord"];
+  assert.equal(C.sectionOf("#metier", ids), "metier");
+  assert.equal(C.sectionOf("#c=d94d99&go=pistesStrip", ["pistesStrip"]), "pistesStrip");
+  assert.equal(C.sectionOf("#c=d94d99&n=55&go=metier", ids), "metier");
+  assert.equal(C.sectionOf("#c=d94d99&n=55", ids), null);
+  assert.equal(C.sectionOf("#inconnue", ids), null);
+  assert.equal(C.sectionOf("#c=d94d99&go=<script>", ids), null);
+  const h = C.withSection("#c=d94d99&n=55", "metier");
+  assert.equal(h, "#c=d94d99&n=55&go=metier");
+  assert.equal(C.readHash(h).n, 55);
+  assert.equal(C.keyOf(h), C.keyOf("#c=d94d99&n=55"));
+  assert.equal(C.withSection("#c=d94d99", null), "#c=d94d99");
+});
+
+test("fidélité : accord original, adapté ou règle", () => {
+  const r = search("#c4663f")[0];
+  assert.equal(C.kindOf(C.build(r, "#c4663f", { substitute: false })), "original");
+  const a = C.build(r, "#c4663f", { substitute: true });
+  assert.equal(C.kindOf(a), a.match.toLowerCase() === "#c4663f" ? "original" : "adapte");
+  const exact = search("#d94d99").find((x) => x.n === 55);
+  assert.equal(C.kindOf(C.build(exact, "#d94d99", { substitute: true })), "original");
+  assert.equal(C.kindOf(C.build(r, "#c4663f", { substitute: false, transpose: true })), "adapte");
+  assert.equal(C.kindOf({ rule: true, colors: [] }), "rule");
+  const two = C.build(search("#c4663f", 0, "#1e7b45")[0], "#c4663f", { substitute: true, seed2: "#1e7b45" });
+  assert.ok(two.match2);
+});

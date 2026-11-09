@@ -13,7 +13,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,400..800&amp;family=Fraunces:ital,opsz,wght@0,9..144,400..700;1,9..144,400..600&amp;family=Plus+Jakarta+Sans:wght@400;500;600;700&amp;family=IBM+Plex+Mono:wght@400;500&amp;family=Shippori+Mincho:wght@600&amp;display=swap">
-<link rel="stylesheet" href="src/styles.css?v=20261108c">
+<link rel="stylesheet" href="src/styles.css?v=20261109">
 </head>
 <body>
 <a class="skip" href="#couleur" data-i18n="h.skip">Aller à l'outil</a>
@@ -159,6 +159,7 @@
         <div><p class="label" id="detailLabel"></p><h2 id="detailTitle"></h2></div>
       </div>
       <p class="hint" id="detailSource"></p>
+      <p class="fid-note" id="detailFid"></p>
       <div class="bigsw" id="bigsw"></div>
       <div class="rows" id="rows"></div>
       <div class="actions">
@@ -280,9 +281,8 @@
           <button class="btn" type="button" id="sheetPng" data-i18n="h.sheet.png">Planche PNG</button>
           <button class="btn ghost" type="button" id="sheetPrint" data-i18n="h.sheet.print">Imprimer ou PDF</button>
           <button class="btn ghost" type="button" data-copy="link" data-i18n="h.copy.link">Copier le lien</button>
-          <button class="btn ghost" type="button" data-pitch="dossier" data-i18n="h.dossier">Dossier de proposition (PDF)</button>
-          <button class="btn ghost" type="button" data-pitch="link" data-i18n="h.clientlink">Lien pour le client</button>
         </div>
+        <p class="hint"><a href="#pistesStrip" data-i18n="h.topistes">Proposer plusieurs pistes à ton client : « Tes pistes, côte à côte » →</a></p>
       </div>
       <div class="dcard">
         <p class="label" data-i18n="h.forsoftware">Pour tes logiciels</p>
@@ -385,18 +385,19 @@
   <button type="button" class="dock-btn" data-copy="link" data-i18n="h.dock.link">Lien</button>
   <button type="button" class="dock-btn" id="dockSheet" data-i18n="h.dock.sheet">Planche</button>
   <button type="button" class="dock-btn" id="dockFav" aria-pressed="false" data-i18n="h.dock.fav">Garder</button>
+  <a class="dock-btn" href="#pistesStrip" id="dockPistes"><span data-i18n="h.dock.pistes">Pistes</span> <b id="dockPistesN">0/3</b></a>
   <button type="button" class="dock-btn" id="dockCalm" aria-pressed="false" title="Retire l'aura et les couleurs décoratives pour juger les teintes sans biais" data-i18n="h.dock.calm" data-i18n-attr="title=h.dock.calm.t">Fond neutre</button>
 </nav>
 <p class="toast" id="toast" role="status"></p>
 <img class="print-sheet" id="printSheet" alt="Planche de l'accord" data-i18n-attr="alt=h.sheet.alt">
 <div class="print-pages" id="printPages"></div>
-<script src="src/core.js?v=20261108c"></script>
-<script src="src/i18n.js?v=20261108c"></script>
-<script src="src/wada-data.js?v=20261108c"></script>
-<script src="src/sources-data.js?v=20261108c"></script>
-<script src="src/scenes.js?v=20261108c"></script>
-<script src="src/proposal.js?v=20261108c"></script>
-<script src="src/recolor.js?v=20261108c"></script>
-<script src="src/app.js?v=20261108c"></script>
+<script src="src/core.js?v=20261109"></script>
+<script src="src/i18n.js?v=20261109"></script>
+<script src="src/wada-data.js?v=20261109"></script>
+<script src="src/sources-data.js?v=20261109"></script>
+<script src="src/scenes.js?v=20261109"></script>
+<script src="src/proposal.js?v=20261109"></script>
+<script src="src/recolor.js?v=20261109"></script>
+<script src="src/app.js?v=20261109"></script>
 </body>
 </html>

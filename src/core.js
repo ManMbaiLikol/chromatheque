@@ -32,6 +32,9 @@
   function lum(hex) { var c = rgb(hex).map(lin); return 0.2126 * c[0] + 0.7152 * c[1] + 0.0722 * c[2]; }
   function contrast(a, b) { var x = lum(a), y = lum(b); return (Math.max(x, y) + 0.05) / (Math.min(x, y) + 0.05); }
   function readableOn(bg) { var w = contrast("#ffffff", bg), k = contrast("#141413", bg); return w >= k ? { c: "#ffffff", r: w } : { c: "#141413", r: k }; }
+  // Ratio affiché tronqué (jamais arrondi au-dessus d'un seuil : 4.46 → « 4.4 »). Usage d'un contraste pour du texte (WCAG 2.2, 1.4.3).
+  function ratioText(r) { return (Math.floor(r * 10 + 1e-9) / 10).toFixed(1); }
+  function textUse(r) { return r >= 4.5 ? "body" : r >= 3 ? "large" : "none"; }
   function towards(hex, bg, target) { var l = lch(hex), out = hex, dark = lum(bg) < 0.2, L = l[0]; for (var i = 0; i < 70 && contrast(out, bg) < target; i++) { L += dark ? 0.012 : -0.012; out = fromLch(Math.max(0, Math.min(1, L)), l[1], l[2]); } return out; }
   function shade(hex, dL) { var l = lch(hex); return fromLch(Math.max(0, Math.min(1, l[0] + dL)), l[1], l[2]); }
   function parseHex(v) {
@@ -123,7 +126,14 @@
     var two = r.idx2 != null, match = r.colors[r.idx], match2 = two ? r.colors[r.idx2] : null, dH = lch(seed)[2] - lch(match)[2], useSeed = opts.substitute;
     var others = r.colors.filter(function (_, j) { return j !== r.idx && j !== r.idx2; }).map(function (c) { if (!opts.transpose) return c; var l = lch(c); return l[1] < 0.03 ? c : fromLch(l[0], l[1], (l[2] + dH + 360) % 360); });
     var head = [useSeed ? seed : match]; if (two) head.push(useSeed ? opts.seed2 : match2);
-    return { n: r.n, wada: r.colors, d: r.d, d1: r.d1, d2: r.d2, two: two, fid: fid(r.d), match: match, colors: head.concat(others) };
+    return { n: r.n, wada: r.colors, d: r.d, d1: r.d1, d2: r.d2, two: two, fid: fid(r.d), match: match, match2: match2, colors: head.concat(others) };
+  }
+  // Nature de l'accord affiché : « original » (couleurs exactes de la source), « adapte » (ta couleur à la place
+  // de sa voisine, ou compagnes transposées), « rule » (règle calculée, sans référence à reproduire).
+  function kindOf(a) {
+    if (a.rule) return "rule";
+    var orig = (a.wada || []).map(function (c) { return c.toLowerCase(); });
+    return a.colors.every(function (c) { return orig.indexOf(c.toLowerCase()) >= 0; }) ? "original" : "adapte";
   }
 
   /* ---------- simulations d'affichage ----------
@@ -305,8 +315,14 @@
     return { lv: "ok", v: { a: most[0], K: K } };
   }
   var CHECKS = {
-    text: function (cs) { var b = pairs(cs).map(function (p) { return [p[0], p[1], contrast(p[0], p[1])]; }).sort(function (x, y) { return y[2] - x[2]; })[0]; return { lv: b[2] >= 4.5 ? "ok" : "warn", v: { a: b[0], b: b[1], r: b[2].toFixed(1) } }; },
-    nontext: function (cs) { var a = cs[cs.length - 1], r = contrast(cs[0], a); return { lv: r >= 3 ? "ok" : "warn", v: { a: a, b: cs[0], r: r.toFixed(1) } }; },
+    text: function (cs) {
+      var b = pairs(cs).map(function (p) { return [p[0], p[1], contrast(p[0], p[1])]; }).sort(function (x, y) { return y[2] - x[2]; })[0];
+      if (b[2] >= 4.5) return { lv: "ok", v: { a: b[0], b: b[1], r: ratioText(b[2]) } };
+      // Sous 4,5:1 : grand texte seulement (≥ 3:1) ou rien ; correction proposée : blanc ou noir, ou la couleur ajustée sur ce fond.
+      var fix = readableOn(b[1]), adj = towards(b[0], b[1], 4.5);
+      return { lv: "warn", v: { a: b[0], b: b[1], r: ratioText(b[2]), use: textUse(b[2]), fix: fix.c, fr: ratioText(fix.r), adj: contrast(adj, b[1]) >= 4.5 && adj !== b[0] ? adj : "" } };
+    },
+    nontext: function (cs) { var a = cs[cs.length - 1], r = contrast(cs[0], a); return { lv: r >= 3 ? "ok" : "warn", v: { a: a, b: cs[0], r: ratioText(r) } }; },
     cvd: function (cs) { var c = confusions(cs); return c.length ? { lv: "warn", v: { a: c[0].a, b: c[0].b, t: c[0].k } } : { lv: "ok", v: {} }; },
     grey: function (cs) { var p = pairs(cs).find(function (x) { return contrast(x[0], x[1]) < 1.25; }); return p ? { lv: "warn", v: { a: p[0], b: p[1] } } : { lv: "ok", v: {} }; },
     cmyk: function (cs) { var r = cs.filter(cmykRisk); return r.length ? { lv: "warn", v: { list: r } } : { lv: "ok", v: {} }; },
@@ -327,9 +343,9 @@
     // UI / web : fond = dominante, couleur d'action = la plus saturée, texte = la plus contrastée (ou blanc / noir).
     roles: function (cs) {
       var bg = cs[0], p = byDesc(cs.slice(1), function (c) { return lch(c)[1]; })[0], r = contrast(p, bg), tt = byDesc(cs.slice(1), function (c) { return contrast(c, bg); });
-      return { lv: r >= 3 ? "ok" : "warn", v: { bg: bg, p: p, r: r.toFixed(1), t: tt[1] >= 4.5 ? tt[0] : readableOn(bg).c } };
+      return { lv: r >= 3 ? "ok" : "warn", v: { bg: bg, p: p, r: ratioText(r), t: tt[1] >= 4.5 ? tt[0] : readableOn(bg).c } };
     },
-    dark: function (cs) { var d = cs.slice().sort(function (x, y) { return lum(x) - lum(y); })[0], o = byDesc(cs.filter(function (c) { return c !== d; }), function (c) { return contrast(c, d); }); return { lv: o[1] >= 4.5 ? "ok" : "info", v: { bg: d, a: o[0], r: o[1].toFixed(1) } }; },
+    dark: function (cs) { var d = cs.slice().sort(function (x, y) { return lum(x) - lum(y); })[0], o = byDesc(cs.filter(function (c) { return c !== d; }), function (c) { return contrast(c, d); }); return { lv: o[1] >= 4.5 ? "ok" : "info", v: { bg: d, a: o[0], r: ratioText(o[1]) } }; },
     popout: function (cs) { var a = cs[cs.length - 1]; return { lv: dist(lab(a), lab(cs[0])) >= 0.25 ? "ok" : "warn", v: { a: a, b: cs[0] } }; },
     contrastlvl: function (cs) { var L = cs.map(function (c) { return lch(c)[0]; }), r = Math.max.apply(null, L) - Math.min.apply(null, L); return { lv: "info", v: { type: r < 0.25 ? "doux" : r < 0.5 ? "moyen" : "fort" } }; },
     mix: function (cs) { return { lv: "info", v: { a: opticalMix(cs) } }; },
@@ -434,6 +450,12 @@
     return "#" + p.join("&");
   }
   // Deux liens désignent le même accord s'ils ne diffèrent que par la scène, le filtre ou la langue.
+  // Section visée par un lien : « #metier » seul, ou « go=metier » ajouté aux réglages. Séparée des données de l'accord (keyOf l'ignore).
+  function sectionOf(hash, ids) {
+    var h = String(hash || "").replace(/^#/, ""), m = /^([A-Za-z][A-Za-z0-9-]*)$/.exec(h) || /(?:^|&)go=([A-Za-z][A-Za-z0-9-]*)(?:&|$)/.exec(h);
+    return m && (ids || []).indexOf(m[1]) >= 0 ? m[1] : null;
+  }
+  function withSection(hash, id) { return id ? hash + "&go=" + id : hash; }
   function keyOf(hash) { var k = readHash(hash); return k ? [k.source, k.seed, k.seed2 || "", k.n, (k.order || []).join("."), k.transpose ? 1 : 0, k.substitute ? 1 : 0].join("|") : hash; }
   // Import de projet : ne garder que des données vérifiées (liens relus et resérialisés, hex valides, textes bornés).
   function cleanItems(arr) {
@@ -452,15 +474,15 @@
 
   return {
     rgb: rgb, toHex: toHex, lin: lin, delin: delin, labFromRgb: labFromRgb, lab: lab, linFromLab: linFromLab, lch: lch, fromLch: fromLch,
-    dist: dist, lum: lum, contrast: contrast, readableOn: readableOn, towards: towards, shade: shade, parseHex: parseHex,
+    dist: dist, lum: lum, contrast: contrast, ratioText: ratioText, textUse: textUse, readableOn: readableOn, towards: towards, shade: shade, parseHex: parseHex,
     nameOf: nameOf, hslOf: hslOf, cmykOf: cmykOf, lrvOf: lrvOf, values: values,
-    PROPS: PROPS, rolesOf: rolesOf, slugsOf: slugsOf, fid: fid, createSearch: createSearch, build: build,
+    PROPS: PROPS, rolesOf: rolesOf, slugsOf: slugsOf, fid: fid, createSearch: createSearch, build: build, kindOf: kindOf,
     simulate: simulate, confusions: confusions, CVD_TYPES: Object.keys(CVD),
     aseBytes: aseBytes, metaOf: metaOf, tokensText: tokensText, tailwindText: tailwindText, gplText: gplText,
     RULES: RULES, ruleCombos: ruleCombos, RULES2: RULES2, ruleCombos2: ruleCombos2, JOBS: JOBS, JOB_IDS: JOB_IDS, FAMILIES: FAMILIES, jobChecks: jobChecks,
     SCALE_STEPS: SCALE_STEPS, scaleOf: scaleOf, scaleText: scaleText, recolorLab: recolorLab, intentFacts: intentFacts,
     cleanProposal: cleanProposal, cleanResponse: cleanResponse, packLink: packLink, unpackLink: unpackLink,
     harmonyOf: harmonyOf, tempOf: tempOf, opticalMix: opticalMix, cmykRisk: cmykRisk, videoUnsafe: videoUnsafe,
-    SCENES: SCENES, SOURCES: SOURCES, readHash: readHash, hashOf: hashOf, keyOf: keyOf, cleanItems: cleanItems, unpack: unpack
+    SCENES: SCENES, SOURCES: SOURCES, readHash: readHash, hashOf: hashOf, keyOf: keyOf, sectionOf: sectionOf, withSection: withSection, cleanItems: cleanItems, unpack: unpack
   };
 });

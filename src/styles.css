@@ -516,3 +516,18 @@ html.calm .step { background: none; color: var(--line) }
 .slot-job { margin-top: 2px }
 .impact.compact { gap: 6px } .impact.compact .chk { font-size: 12px; padding: 7px 9px; grid-template-columns: 20px minmax(0, 1fr); gap: 8px } .impact.compact .ico { width: 20px; height: 20px; font-size: 10px }
 .slot > .mini { justify-self: start }
+
+/* Fidélité à la référence (détail de l'accord) : original ou adapté, couleur d'origine, méthode de l'écart */
+.fid-note { display: grid; gap: 6px; margin: 10px 0 4px; padding: 10px 12px; border: 1px solid var(--line); border-radius: var(--r); background: var(--surface); font-size: 13px; color: var(--ink) }
+.fid-note:empty { display: none }
+.fid-kind { justify-self: start; font: 700 11px/1 var(--body); letter-spacing: .12em; text-transform: uppercase; padding: 5px 9px; border-radius: 99px; border: 1px solid var(--line) }
+.fid-kind.adapte { border-style: dashed }
+.fid-line { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; font-family: var(--mono); font-size: 12.5px }
+.fid-line small { font-family: var(--body); color: var(--muted); flex-basis: 100% }
+.fid-sw { width: 16px; height: 16px; border-radius: 4px; box-shadow: inset 0 0 0 1px rgba(0,0,0,.15) }
+.fid-arrow { color: var(--muted) }
+.fid-method { color: var(--muted); font-size: 12.5px }
+a.dock-btn { display: inline-flex; align-items: center; gap: 6px; text-decoration: none }
+.dock-btn b { font: 500 12px var(--mono); opacity: .8 }
+.pitch-steps .step-go { margin-left: 6px; font-weight: 600; white-space: nowrap }
+@media (max-width: 460px) { .dock-mark { display: none } .dock { gap: 3px } .dock-btn { padding: 0 9px; font-size: 12.5px } }

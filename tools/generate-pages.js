@@ -25,7 +25,7 @@ const T = {
     intro: (k, parts) => "Combinaison à " + k + " couleurs du <i>Dictionary of Color Combinations</i>. Proportions conseillées (convention MML) : " + parts + ".",
     caption: "Valeurs pour la fabrication", capHint: "CMJN sans profil ICC et LRV estimé depuis l'écran : à confirmer sur nuancier.",
     col: "Couleur", cmyk: "CMJN ≈",
-    legible: (c, r, low) => "Texte lisible sur la dominante : " + c + " " + r + ":1" + (low ? " (titres seulement)" : "") + ".",
+    legible: (c, r, low) => "Texte lisible sur la dominante : " + c + " " + r + ":1" + (low === "large" ? " (grand texte seulement)" : low === "none" ? " (insuffisant pour du texte)" : "") + ".",
     white: "blanc", black: "noir",
     cvdOk: "Daltonisme : toutes les couleurs restent distinctes en protanopie, deutéranopie et tritanopie.",
     cvdWarn: (list) => "Attention au daltonisme : " + list + ".", cvdIn: (v, p) => "en " + v + ", " + p + " se confondent", and: " et ",
@@ -47,7 +47,7 @@ const T = {
     intro: (k, parts) => k + "-color combination from the <i>Dictionary of Color Combinations</i>. Suggested proportions (MML convention): " + parts + ".",
     caption: "Values for production", capHint: "CMYK without ICC profile and LRV estimated from screen: confirm with a physical swatch.",
     col: "Color", cmyk: "CMYK ≈",
-    legible: (c, r, low) => "Legible text on the dominant: " + c + " " + r + ":1" + (low ? " (headings only)" : "") + ".",
+    legible: (c, r, low) => "Legible text on the dominant: " + c + " " + r + ":1" + (low === "large" ? " (large text only)" : low === "none" ? " (not enough for text)" : "") + ".",
     white: "white", black: "black",
     cvdOk: "Color blindness: all colors stay distinct with protanopia, deuteranopia and tritanopia.",
     cvdWarn: (list) => "Color blindness warning: " + list + ".", cvdIn: (v, p) => "with " + v + ", " + p + " look alike", and: " and ",
@@ -139,7 +139,7 @@ function fiche(lang, n) {
       <tbody>${cs.map((h, i) => { const v = C.values(h); return `<tr><th scope="row"><span class="vdot" style="background:${h}"></span>${roles[i]} ${parts[i]} % · ${esc(names[i])}</th><td>${v.hex}</td><td>${v.rgb}</td><td>${v.hsl}</td><td>${v.oklch}</td><td>${v.cmjn}</td><td>${v.lrv}</td></tr>`; }).join("")}</tbody>
     </table>
   </div>
-  <p class="hint">${esc(L.legible(L[rd.c === "#ffffff" ? "white" : "black"], rd.r.toFixed(1), rd.r < 4.5))} ${esc(cvd)}</p>
+  <p class="hint">${esc(L.legible(L[rd.c === "#ffffff" ? "white" : "black"], C.ratioText(rd.r), C.textUse(rd.r)))} ${esc(cvd)}</p>
   <div class="actions"><a class="btn" href="${tool}">${L.open}</a><span class="hint">${L.openHint}</span></div>
 ${also}
   <nav class="pager" aria-label="${L.prev} / ${L.next}">${n > 1 ? `<a class="btn ghost" rel="prev" href="../${n - 1}/">← ${L.num}${n - 1}</a>` : "<span></span>"}${n < 348 ? `<a class="btn ghost" rel="next" href="../${n + 1}/">${L.num}${n + 1} →</a>` : ""}</nav>

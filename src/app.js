@@ -81,7 +81,25 @@
     return hashOf({ seed: state.seed, seed2: state.multi ? state.seed2 : null, locked: state.locked.length, n: cur ? cur.a.n : 0, order: state.order, size: state.size, substitute: state.substitute, transpose: state.transpose, scene: state.scene, source: state.source, lang: lang });
   }
   function shareUrl() { return location.href.split("#")[0] + shareHash(); }
-  function updateLink() { if (/^#[pr]=/.test(location.hash)) return; try { history.replaceState(null, "", shareHash()); } catch (e) {} }
+  // Sections : la destination (go=) est séparée des réglages ; un lien « #metier » garde la palette mémorisée.
+  var SECTIONS = [].map.call(document.querySelectorAll('a[href^="#"], section[id]'), function (a) { return a.tagName === "A" ? a.getAttribute("href").slice(1) : a.id; })
+    .filter(function (id, i, all) { return id && all.indexOf(id) === i && document.getElementById(id); });
+  var section = C.sectionOf(location.hash, SECTIONS);
+  function stateHash() { return C.withSection(shareHash(), section); }
+  function goSection(id, how) {
+    var e = document.getElementById(id); if (!e) return;
+    e.scrollIntoView({ behavior: how || smooth() });
+    if (!e.hasAttribute("tabindex") && !/^(A|BUTTON|INPUT|SELECT|TEXTAREA)$/.test(e.tagName)) e.setAttribute("tabindex", "-1");
+    try { e.focus({ preventScroll: true }); } catch (x) {}
+  }
+  function updateLink() { if (/^#[pr]=/.test(location.hash)) return; try { history.replaceState(null, "", stateHash()); } catch (e) {} }
+  document.addEventListener("click", function (e) {
+    var a = e.target.closest && e.target.closest('a[href^="#"]'); if (!a || e.defaultPrevented || e.button || e.metaKey || e.ctrlKey || e.shiftKey) return;
+    var id = a.getAttribute("href").slice(1); if (SECTIONS.indexOf(id) < 0 || /^#[pr]=/.test(location.hash)) return;
+    e.preventDefault(); section = id;
+    try { history.pushState(null, "", stateHash()); } catch (x) {}
+    goSection(id);
+  });
 
   var $ = function (id) { return document.getElementById(id); };
   function el(tag, attrs, kids) { var e = document.createElement(tag); if (attrs) for (var k in attrs) { if (k === "style") e.style.cssText = attrs[k]; else if (k === "text") e.textContent = attrs[k]; else e.setAttribute(k, attrs[k]); } (kids || []).forEach(function (c) { e.appendChild(c); }); return e; }
@@ -310,9 +328,33 @@
     var order = state.order || a.colors.map(function (_, i) { return i; });
     return { a: a, colors: order.map(function (i) { return a.colors[i]; }), order: order };
   }
-  function textOn(r) { return t("text.on", { c: t(r.c === "#ffffff" ? "white" : "black"), r: r.r.toFixed(1) }) + (r.r < 4.5 ? t("titles.only") : ""); }
+  // Seuils WCAG 2.2 (1.4.3) sur la valeur non arrondie : 4,5:1 texte courant, 3:1 grand texte, en dessous rien.
+  function useShort(r) { var u = C.textUse(r); return u === "body" ? "" : t("use.short." + u); }
+  function textOn(r) { return t("text.on", { c: t(r.c === "#ffffff" ? "white" : "black"), r: C.ratioText(r.r) }) + useShort(r.r); }
   function gapText(a) { return a.rule ? "" : a.two ? t("detail.gaps", { a: (a.d1 * 100).toFixed(1), b: (a.d2 * 100).toFixed(1) }) : t("detail.gap", { d: (a.d * 100).toFixed(1) }); }
 
+  // Fidélité à la référence : original ou adapté, couleur d'origine remplacée, et méthode de l'écart.
+  function hexName(h) { return nameOf(h) + " " + h.toUpperCase(); }
+  function renderFid(a, src) {
+    var box = $("detailFid"), kind = C.kindOf(a), ref = t(src === "wada" ? "fidref.wada" : "fidref.src", { s: srcName(src) }), bits = [];
+    box.textContent = "";
+    if (kind === "rule") { box.appendChild(el("span", { text: t("fid.rule") })); return; }
+    var pairs = [[state.seed, a.match, a.two ? a.d1 : a.d]]; if (a.two) pairs.push([state.seed2, a.match2, a.d2]);
+    box.appendChild(el("b", { class: "fid-kind " + kind, text: t("fidkind." + kind) }));
+    pairs.forEach(function (p) {
+      var same = p[0].toLowerCase() === p[1].toLowerCase(), g = (p[2] * 100).toFixed(1);
+      var line = el("span", { class: "fid-line" }, [
+        el("i", { class: "fid-sw", style: "background:" + p[0], "aria-hidden": "true" }), el("span", { text: hexName(p[0]) }),
+        el("span", { class: "fid-arrow", "aria-hidden": "true", text: same ? "=" : "↔" }),
+        el("i", { class: "fid-sw", style: "background:" + p[1], "aria-hidden": "true" }), el("span", { text: hexName(p[1]) }),
+        el("small", { text: same ? t("fid.same", { ref: ref }) : t(state.substitute ? "fid.replaces" : "fid.nearest", { ref: ref, g: g }) })]);
+      bits.push(line);
+    });
+    bits.forEach(function (b) { box.appendChild(b); });
+    var tail = [t(kind === "adapte" ? (state.transpose ? "fid.tr" : "fid.others") : "fid.exact", { ref: ref })];
+    tail.push(t("fid.method"));
+    box.appendChild(el("span", { class: "fid-method", text: tail.join(" ") }));
+  }
   function renderDetail() {
     var cur = current(); if (!cur) return;
     var a = cur.a, cs = cur.colors, parts = PROPS[cs.length], src = state.source, f = t("fid." + a.fid);
@@ -321,6 +363,7 @@
     $("detailTitle").textContent = src === "wada" ? cs.map(nameOf).join(" · ") : longLabel(src, a.n);
     var e = entryOf(src, a.n);
     $("detailSource").textContent = src === "wada" ? "" : (e ? e.g[lang] + " · " : "") + cs.map(nameOf).join(" · ");
+    renderFid(a, src);
     var big = $("bigsw"); big.textContent = "";
     cs.forEach(function (c, i) { var s = sim(c), r = readableOn(s); big.appendChild(el("div", { style: "background:" + s + ";color:" + r.c + ";flex:" + parts[i] }, [document.createTextNode(parts[i] + " %")])); });
     var roles = rolesFor(src, cs.length);
@@ -393,6 +436,7 @@
     var v = fmtVars(c.v);
     if (TYPE_PREFIX[c.k]) v.type = t(TYPE_PREFIX[c.k] + c.v.type);
     if (c.k === "cvd" && c.v.t) v.t = t("cvd." + c.v.t);
+    if (c.k === "text" && c.lv === "warn") { v.use = t("use." + c.v.use); v.adj = c.v.adj ? t("chk.text.adj", { a: v.adj }) : ""; }
     return t("chk." + (/^light/.test(c.k) ? "light" : c.k) + "." + c.lv, v);
   }
   function jobLines(cs) { return C.jobChecks(state.scene, cs).map(function (c) { return { lv: c.lv, text: checkText(c) }; }); }
@@ -532,7 +576,7 @@
       x.fillStyle = S.muted; x.font = "400 14px " + FONT.body;
       hy = wrapText(x, t("scene." + state.scene), RX, hy + 2, RW, 20);
       var rd = readableOn(cs[0]);
-      hy = wrapText(x, t("sheet.legible", { c: t(rd.c === "#ffffff" ? "white" : "black"), r: rd.r.toFixed(1), t: rd.r < 4.5 ? t("titles.only") : "" }), RX, hy + 6, RW, 20);
+      hy = wrapText(x, t("sheet.legible", { c: t(rd.c === "#ffffff" ? "white" : "black"), r: C.ratioText(rd.r), t: useShort(rd.r) }), RX, hy + 6, RW, 20);
       jobLines(cs).forEach(function (l) { if (hy < S.h - M - 110) hy = wrapText(x, (l.lv === "ok" ? "✓ " : l.lv === "warn" ? "! " : "· ") + l.text, RX, hy + 6, RW, 20); });
 
       // Pied de planche
@@ -848,9 +892,12 @@
   }
   // Lien collé dans un onglet déjà ouvert, ou accord rouvert depuis un projet
   window.addEventListener("hashchange", function () {
-    if (location.hash === shareHash()) return;
-    var k = readHash(location.hash); if (!k) return;
-    takeLink(k); document.querySelectorAll(".chip.on").forEach(function (c) { c.classList.remove("on"); }); start();
+    var h = location.hash, sec = C.sectionOf(h, SECTIONS), k = readHash(h);
+    if (/^#[pr]=/.test(h)) return;
+    section = sec;
+    if (k && h !== stateHash() && h !== shareHash()) { takeLink(k); document.querySelectorAll(".chip.on").forEach(function (c) { c.classList.remove("on"); }); start(); }
+    else if (!k && sec) updateLink();
+    if (sec) goSection(sec);
   });
   // Informations d'un accord gardé (dossier, vue client) : libellés, fidélité, analyses du métier de son lien.
   function itemInfo(it) {
@@ -886,4 +933,6 @@
   };
   EXT.forEach(function (x) { if (x.init) x.init(window.ChromaApp); });
   start();
+  // Lien vers une section (#metier ou go=metier) : y aller une fois la page dessinée.
+  if (section) { var goNow = section; requestAnimationFrame(function () { setTimeout(function () { goSection(goNow, "instant"); }, 60); }); }
 })();

@@ -201,15 +201,19 @@
   }
   function goPick() {
     A.toast(t("pitch.none"));
-    var bar = $("pisteBar"); bar.scrollIntoView({ behavior: "smooth", block: "center" });
+    var bar = $("pistesStrip"); bar.scrollIntoView({ behavior: "smooth", block: "center" });
     bar.classList.remove("flash"); void bar.offsetWidth; bar.classList.add("flash");
   }
   function renderPitch(p) {
     var list = pistes(p), n = list.length;
     $("pitchHint").textContent = n ? t("pitch.ready", { n: n, list: list.map(function (it) { return it.piste; }).join(", ") }) : t("pitch.none");
     var steps = $("pitchSteps"); steps.textContent = "";
-    [[n > 0, t("pitch.s1")], [!!(studio.name || studio.logo), t("pitch.s2")], [false, t("pitch.s3")]].forEach(function (s) {
-      steps.appendChild(el("li", { class: s[0] ? "done" : "" }, [el("span", { class: "ico", "aria-hidden": "true", text: s[0] ? "✓" : "" }), el("span", { text: s[1] })]));
+    $("dockPistesN").textContent = n + "/3";
+    // Chaque étape mène à un seul endroit, par un lien direct.
+    [[n > 0, t("pitch.s1"), "pistesStrip", t("pitch.s1.go")], [!!(studio.name || studio.logo), t("pitch.s2"), "livrer", t("pitch.s2.go")], [false, t("pitch.s3"), "", ""]].forEach(function (s) {
+      var kids = [el("span", { class: "ico", "aria-hidden": "true", text: s[0] ? "✓" : "" }), el("span", { text: s[1] })];
+      if (s[2]) kids.push(el("a", { href: "#" + s[2], class: "step-go", text: s[3] }));
+      steps.appendChild(el("li", { class: s[0] ? "done" : "" }, kids));
     });
     var box = $("pitchPistes"); box.textContent = "";
     PISTES.forEach(function (l) {
